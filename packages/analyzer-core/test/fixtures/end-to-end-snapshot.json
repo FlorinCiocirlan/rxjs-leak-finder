@@ -1,0 +1,76 @@
+{
+  "snapshot": {
+    "meta": {
+      "node_fields": ["type", "name", "id", "self_size", "edge_count", "trace_node_id", "detachedness"],
+      "node_types": [
+        ["hidden", "array", "string", "object", "code", "closure", "regexp", "number", "native", "synthetic", "concatenated string", "sliced string", "symbol", "bigint", "object shape"],
+        "string", "number", "number", "number", "number", "number"
+      ],
+      "edge_fields": ["type", "name_or_index", "to_node"],
+      "edge_types": [
+        ["context", "element", "property", "internal", "hidden", "shortcut", "weak"],
+        "string_or_number", "node"
+      ]
+    },
+    "node_count": 12,
+    "edge_count": 11,
+    "trace_function_count": 0
+  },
+  "nodes": [
+    3, 1, 1, 0, 1, 0, 0,
+    3, 2, 2, 0, 1, 0, 0,
+    3, 3, 3, 0, 1, 0, 0,
+    3, 4, 4, 0, 1, 0, 0,
+    2, 5, 5, 0, 0, 0, 0,
+    7, 6, 6, 0, 0, 0, 0,
+    2, 7, 7, 0, 0, 0, 0,
+    2, 8, 8, 0, 0, 0, 0,
+    2, 9, 9, 0, 0, 0, 0,
+    2, 10, 10, 0, 0, 0, 0,
+    2, 11, 11, 0, 0, 0, 0,
+    3, 12, 12, 0, 7, 0, 0
+  ],
+  "edges": [
+    2, 13, 7,
+    2, 14, 14,
+    2, 15, 21,
+    2, 16, 77,
+    2, 17, 28,
+    2, 18, 35,
+    2, 19, 42,
+    2, 20, 49,
+    2, 21, 56,
+    2, 22, 63,
+    2, 23, 70
+  ],
+  "trace_function_infos": [],
+  "trace_tree": [],
+  "samples": [],
+  "locations": [],
+  "strings": [
+    "",
+    "Window",
+    "AppComponent",
+    "ProductListComponent",
+    "Subscription",
+    "sub-1",
+    "100",
+    "/products",
+    "Error: stack\n    at ngOnInit (http://localhost:4200/main.js:1:50)",
+    "interval",
+    "rec-1",
+    "false",
+    "Object",
+    "appComp",
+    "list",
+    "_sub",
+    "__sw_meta",
+    "id",
+    "createdAtMs",
+    "route",
+    "stackRaw",
+    "observableKind",
+    "recordingId",
+    "closed"
+  ]
+}
