@@ -75,6 +75,31 @@ importers:
         specifier: ^7.8.1
         version: 7.8.2
 
+  packages/rxjs-leak-detector:
+    dependencies:
+      '@rld/analyzer-core':
+        specifier: workspace:*
+        version: link:../analyzer-core
+      source-map:
+        specifier: ^0.7.4
+        version: 0.7.6
+    devDependencies:
+      '@rld/panel-ui':
+        specifier: workspace:*
+        version: link:../panel-ui
+      happy-dom:
+        specifier: ^14.10.1
+        version: 14.12.3
+      lit:
+        specifier: ^3.1.0
+        version: 3.3.3
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.2
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.21(@types/node@20.19.41)
+
   packages/tagger:
     devDependencies:
       happy-dom:

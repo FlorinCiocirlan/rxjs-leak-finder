@@ -32,7 +32,8 @@
     "@rld/panel-ui": "workspace:*",
     "happy-dom": "^14.10.1",
     "lit": "^3.1.0",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "vite": "^5.2.0"
   },
   "keywords": ["rxjs", "angular", "memory-leak", "subscription", "devtools"],
   "license": "MIT"
