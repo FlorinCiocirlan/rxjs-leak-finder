@@ -1,5 +1,4 @@
-import type { SubscriptionTag } from '@rld/analyzer-core';
-import type { RecordingReport } from './types.js';
+import type { SubscriptionTag, RecordingReport } from './types.js';
 import { getTrackedPath } from './route-tracker.js';
 
 function makeRecordingId(): string {

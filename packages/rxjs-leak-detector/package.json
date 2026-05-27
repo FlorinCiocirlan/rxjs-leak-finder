@@ -24,15 +24,13 @@
     "dist/",
     "README.md"
   ],
-  "dependencies": {
-    "@rld/analyzer-core": "workspace:*",
-    "source-map": "^0.7.4"
-  },
   "devDependencies": {
+    "@rld/analyzer-core": "workspace:*",
     "@rld/panel-ui": "workspace:*",
     "happy-dom": "^14.10.1",
     "lit": "^3.1.0",
     "rxjs": "^7.8.1",
+    "source-map": "^0.7.4",
     "vite": "^5.2.0"
   },
   "keywords": ["rxjs", "angular", "memory-leak", "subscription", "devtools"],
