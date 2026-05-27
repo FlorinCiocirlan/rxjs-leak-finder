@@ -66,17 +66,19 @@ function detectObservableKind(observable: any): string {
   return kind;
 }
 
+let pendingListenerAdded = false;
+
 export async function installPatch(): Promise<void> {
   if (installedFlag) return;
   const w = globalThis as any;
-  let ObservableCtor: any = w.Observable;
+  let ObservableCtor: any = w.Observable ?? w.__rldObservable;
   if (!ObservableCtor) {
-    try {
-      const mod = await import('rxjs');
-      ObservableCtor = mod.Observable;
-    } catch {
-      return;
+    // Wait for enableRxjsLeakDetector() to expose Observable.
+    if (!pendingListenerAdded && typeof window !== 'undefined') {
+      pendingListenerAdded = true;
+      window.addEventListener('rld:observable-ready', () => { void installPatch(); }, { once: true });
     }
+    return;
   }
   const proto = ObservableCtor.prototype;
   if ((proto as any)[PATCHED]) {

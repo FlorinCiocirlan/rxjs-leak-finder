@@ -28,6 +28,15 @@ importers:
         specifier: ^0.5.7
         version: 0.5.7
 
+  packages/runtime:
+    devDependencies:
+      happy-dom:
+        specifier: ^14.10.1
+        version: 14.12.3
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.2
+
   packages/tagger:
     devDependencies:
       happy-dom:

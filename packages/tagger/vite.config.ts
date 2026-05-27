@@ -12,5 +12,8 @@ export default defineConfig({
     minify: false,
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      external: ['rxjs'],
+    },
   },
 });

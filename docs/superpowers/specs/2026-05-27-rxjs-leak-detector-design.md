@@ -39,6 +39,15 @@ The extension injects a script into the page's main JavaScript world at `documen
 
 Prototype patching survives minification (prototype identity is preserved by the runtime) and works regardless of how RxJS is bundled, because every subscribe call ultimately dispatches through `Observable.prototype.subscribe`.
 
+**Runtime hook required:** Because modern Angular dev builds load RxJS as an ES module (not on `window`), the extension cannot find the page's `Observable` class without help. The user installs `@rld/runtime` (a tiny package) and adds one line to `main.ts`:
+```ts
+import { Observable } from 'rxjs';
+import { enableRxjsLeakDetector } from '@rld/runtime';
+enableRxjsLeakDetector(Observable);
+bootstrapApplication(AppComponent, appConfig);
+```
+`enableRxjsLeakDetector` exposes `Observable` on `window.__rldObservable` and dispatches a `rld:observable-ready` event. The tagger reads from there and proceeds. This is a no-op when the extension isn't installed.
+
 ### 2.2 Page boundaries: auto-detect Angular Router, fall back to URL
 
 The tagger probes for Angular Router via `window.ng.applicationRef.injector.get(Router)`. When found, it subscribes to `Router.events` filtered to `NavigationEnd` to track route transitions. When not found (non-Angular SPA, or Router not yet bootstrapped), it falls back to `popstate` + `hashchange` listeners and a `MutationObserver` on `history.pushState`/`replaceState`. A manual "Mark navigation" button in the panel is available as an override.
@@ -67,7 +76,7 @@ The list view shows file:line + component + Observable kind. The expanded detail
 
 ## 3. Architecture
 
-pnpm workspace with four packages:
+pnpm workspace with five packages:
 
 ```
 rxjs-subsriptions/
@@ -76,6 +85,7 @@ rxjs-subsriptions/
 ├── packages/
 │   ├── analyzer-core/        # pure TS, Node-runnable
 │   ├── tagger/               # IIFE bundle injected into page MAIN world
+│   ├── runtime/              # tiny user-installed npm package that exposes Observable on window for the tagger to find
 │   ├── extension/            # Manifest V3 shell (background, devtools, content-bridge)
 │   └── panel-ui/             # Lit web components for DevTools panel
 └── docs/superpowers/specs/
