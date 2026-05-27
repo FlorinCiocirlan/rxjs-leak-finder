@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+.DS_Store
+packages/extension/test/e2e/fixtures/test-app/.angular/

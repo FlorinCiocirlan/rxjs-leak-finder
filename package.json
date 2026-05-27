@@ -1,0 +1,18 @@
+{
+  "name": "rxjs-leak-detector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' run build",
+    "test": "pnpm -r --filter './packages/*' run test",
+    "test:e2e": "pnpm --filter @rld/extension run test:e2e",
+    "typecheck": "pnpm -r --filter './packages/*' run typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0",
+    "@types/node": "^20.12.7"
+  },
+  "packageManager": "pnpm@9.1.0"
+}
