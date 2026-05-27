@@ -1,0 +1,37 @@
+{
+  "snapshot": {
+    "meta": {
+      "node_fields": ["type", "name", "id", "self_size", "edge_count", "trace_node_id", "detachedness"],
+      "node_types": [
+        ["hidden", "array", "string", "object", "code", "closure", "regexp", "number", "native", "synthetic", "concatenated string", "sliced string", "symbol", "bigint", "object shape"],
+        "string", "number", "number", "number", "number", "number"
+      ],
+      "edge_fields": ["type", "name_or_index", "to_node"],
+      "edge_types": [
+        ["context", "element", "property", "internal", "hidden", "shortcut", "weak"],
+        "string_or_number", "node"
+      ],
+      "trace_function_info_fields": [],
+      "trace_node_fields": [],
+      "sample_fields": [],
+      "location_fields": []
+    },
+    "node_count": 3,
+    "edge_count": 2,
+    "trace_function_count": 0
+  },
+  "nodes": [
+    3, 1, 1, 0, 1, 0, 0,
+    3, 2, 2, 0, 1, 0, 0,
+    3, 3, 3, 0, 0, 0, 0
+  ],
+  "edges": [
+    2, 4, 7,
+    2, 5, 14
+  ],
+  "trace_function_infos": [],
+  "trace_tree": [],
+  "samples": [],
+  "locations": [],
+  "strings": ["", "Window", "Subscription", "Object", "child", "__sw_meta"]
+}
