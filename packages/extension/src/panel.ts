@@ -1,5 +1,4 @@
-// TODO: re-enable when Phase 4 adds @rld/panel-ui:
-// import '@rld/panel-ui';
+import '@rld/panel-ui';
 import type { PanelToBackground, BackgroundToPanel } from './messages.js';
 
 const tabId = chrome.devtools.inspectedWindow.tabId;

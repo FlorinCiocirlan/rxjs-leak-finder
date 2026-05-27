@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@rld/analyzer-core": "workspace:*",
+    "@rld/panel-ui": "workspace:*",
     "@rld/tagger": "workspace:*",
     "source-map": "^0.7.4"
   },

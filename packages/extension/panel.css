@@ -1,0 +1,15 @@
+:root {
+  --bg: #2b2b2b;
+  --fg: #e8eaed;
+  --accent: #8ab4f8;
+  --danger: #f28b82;
+  --muted: #9aa0a6;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--bg);
+}
+body { margin: 0; padding: 8px; }
+button { background: #3c4043; color: var(--fg); border: 1px solid #5f6368; padding: 4px 10px; cursor: pointer; font: inherit; }
+button:hover { background: #5f6368; }
+button[data-recording] { background: var(--danger); }
