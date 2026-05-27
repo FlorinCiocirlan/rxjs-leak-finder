@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>RxJS Leak Detector</title>
+<style>
+  body { margin: 0; font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 13px;
+         background: #2b2b2b; color: #e8eaed; display: grid;
+         grid-template-columns: 240px 1fr; min-height: 100vh; }
+  aside { background: #1f1f1f; border-right: 1px solid #3c4043; padding: 12px; }
+  aside h1 { font-size: 13px; margin: 0 0 12px; color: #9aa0a6; text-transform: uppercase; letter-spacing: 1px; }
+  .session { padding: 8px; cursor: pointer; border-radius: 4px; }
+  .session:hover { background: #3c4043; }
+  .session.active { background: #1a73e8; color: white; }
+  .session .when { color: #9aa0a6; font-size: 11px; }
+  main { padding: 12px; }
+</style>
+</head>
+<body>
+<aside>
+  <h1>Sessions</h1>
+  <div id="sessions"></div>
+</aside>
+<main>
+  <leak-detector-root id="root"></leak-detector-root>
+</main>
+<script type="module" src="./app.ts"></script>
+</body></html>
