@@ -29,6 +29,7 @@ export default defineConfig({
         copyFileSync(resolve(__dirname, 'src/manifest.json'), resolve(dist, 'manifest.json'));
         copyFileSync(resolve(__dirname, 'devtools.html'), resolve(dist, 'devtools.html'));
         copyFileSync(resolve(__dirname, 'panel.html'), resolve(dist, 'panel.html'));
+        copyFileSync(resolve(__dirname, 'panel.css'), resolve(dist, 'panel.css'));
         copyFileSync(resolve(__dirname, '../tagger/dist/tagger.js'), resolve(dist, 'tagger.js'));
       },
     },
