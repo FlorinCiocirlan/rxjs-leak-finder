@@ -25,12 +25,14 @@ export class LeakDetailEl extends LitElement {
         <h4>Stack</h4>
         ${this.leak.stack.map((f) => html`<stack-frame .frame=${f}></stack-frame>`)}
       </div>
-      <div class="section">
-        <h4>Retainer chain</h4>
-        <div class="retainer">
-          ${this.leak.retainerChain.map((n) => html`<span>${n.constructorName}</span>`)}
+      ${this.leak.retainerChain.length > 0 ? html`
+        <div class="section">
+          <h4>Retainer chain</h4>
+          <div class="retainer">
+            ${this.leak.retainerChain.map((n) => html`<span>${n.constructorName}</span>`)}
+          </div>
         </div>
-      </div>
+      ` : ''}
     `;
   }
 }
