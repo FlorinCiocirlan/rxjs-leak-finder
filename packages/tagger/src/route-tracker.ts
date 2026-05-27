@@ -38,7 +38,7 @@ function patchHistoryGlobal() {
   const origPush = history.pushState;
   const origReplace = history.replaceState;
 
-  history.pushState = function (...args: Parameters<typeof history.pushState>) {
+  history.pushState = function (this: History, ...args: Parameters<typeof history.pushState>) {
     origPush.apply(this, args);
     const url = args[2];
     if (url != null) {
@@ -46,7 +46,7 @@ function patchHistoryGlobal() {
     }
   } as typeof history.pushState;
 
-  history.replaceState = function (...args: Parameters<typeof history.replaceState>) {
+  history.replaceState = function (this: History, ...args: Parameters<typeof history.replaceState>) {
     origReplace.apply(this, args);
     const url = args[2];
     if (url != null) {
@@ -90,12 +90,12 @@ export function installRouteTracker(listener: RouteListener): () => void {
   const globalPush = history.pushState;
   const globalReplace = history.replaceState;
 
-  history.pushState = function (...args: Parameters<typeof history.pushState>) {
+  history.pushState = function (this: History, ...args: Parameters<typeof history.pushState>) {
     globalPush.apply(this, args);
     fireWithUrl(args[2]);
   } as typeof history.pushState;
 
-  history.replaceState = function (...args: Parameters<typeof history.replaceState>) {
+  history.replaceState = function (this: History, ...args: Parameters<typeof history.replaceState>) {
     globalReplace.apply(this, args);
     fireWithUrl(args[2]);
   } as typeof history.replaceState;
