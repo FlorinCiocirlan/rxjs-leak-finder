@@ -17,8 +17,12 @@ chrome.runtime.onConnect.addListener((port) => {
 async function handlePanelMessage(msg: PanelToBackground, port: Port): Promise<void> {
   try {
     if (msg.type === 'START_RECORDING') {
-      await startRecording(msg.tabId);
-      send(port, { type: 'STATE', isRecording: true });
+      const result = await startRecording(msg.tabId);
+      if (!result.ok) {
+        send(port, { type: 'ERROR', message: result.warning });
+      } else {
+        send(port, { type: 'STATE', isRecording: true });
+      }
     } else if (msg.type === 'STOP_RECORDING') {
       send(port, { type: 'PROGRESS', phase: 'capturing' });
       const report = await stopRecording(msg.tabId, (phase) =>

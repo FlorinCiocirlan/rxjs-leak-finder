@@ -8,9 +8,33 @@ type PendingSession = { tabId: number; recordingId: string };
 
 const sessions = new Map<number, PendingSession>();
 
-export async function startRecording(tabId: number): Promise<void> {
+export type StartResult = { ok: true } | { ok: false; warning: string };
+
+export async function startRecording(tabId: number): Promise<StartResult> {
+  const patched = await checkPatch(tabId);
+  if (!patched) {
+    return {
+      ok: false,
+      warning:
+        'Tagger missed early subscriptions — reload the page after enabling the extension. Also ensure @rld/runtime is set up in your app.',
+    };
+  }
   await chrome.tabs.sendMessage(tabId, { type: 'START_RECORDING' });
   sessions.set(tabId, { tabId, recordingId: '' });
+  return { ok: true };
+}
+
+async function checkPatch(tabId: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    chrome.scripting.executeScript(
+      {
+        target: { tabId },
+        world: 'MAIN',
+        func: () => Boolean((window as any).__rxjsLeakDetector),
+      },
+      (results) => resolve(Boolean(results?.[0]?.result)),
+    );
+  });
 }
 
 export async function stopRecording(
@@ -18,6 +42,9 @@ export async function stopRecording(
   onPhase: (phase: Phase) => void,
 ): Promise<LeakReport> {
   const meta = await sendAndAwait<RecordingMeta>(tabId, { type: 'STOP_RECORDING' });
+  if (meta.navigations.length === 0) {
+    throw new Error('No navigation detected — leak detection needs at least one route change.');
+  }
   onPhase('capturing');
   const snapshot = await captureHeapSnapshot(tabId);
   onPhase('fetching-maps');
