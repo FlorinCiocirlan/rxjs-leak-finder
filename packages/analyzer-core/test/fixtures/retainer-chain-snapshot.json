@@ -1,0 +1,48 @@
+{
+  "snapshot": {
+    "meta": {
+      "node_fields": ["type", "name", "id", "self_size", "edge_count", "trace_node_id", "detachedness"],
+      "node_types": [
+        ["hidden", "array", "string", "object", "code", "closure", "regexp", "number", "native", "synthetic", "concatenated string", "sliced string", "symbol", "bigint", "object shape"],
+        "string", "number", "number", "number", "number", "number"
+      ],
+      "edge_fields": ["type", "name_or_index", "to_node"],
+      "edge_types": [
+        ["context", "element", "property", "internal", "hidden", "shortcut", "weak"],
+        "string_or_number", "node"
+      ]
+    },
+    "node_count": 5,
+    "edge_count": 4,
+    "trace_function_count": 0
+  },
+  "nodes": [
+    3, 1, 1, 0, 1, 0, 0,
+    3, 2, 2, 0, 1, 0, 0,
+    3, 3, 3, 0, 1, 0, 0,
+    3, 4, 4, 0, 1, 0, 0,
+    3, 5, 5, 0, 0, 0, 0
+  ],
+  "edges": [
+    2, 6, 7,
+    2, 7, 14,
+    2, 8, 21,
+    2, 9, 28
+  ],
+  "trace_function_infos": [],
+  "trace_tree": [],
+  "samples": [],
+  "locations": [],
+  "strings": [
+    "",
+    "Window",
+    "AppComponent",
+    "ProductListComponent",
+    "Subject",
+    "Subscription",
+    "appComponent",
+    "list",
+    "subject$",
+    "_subscription"
+  ]
+}
