@@ -1,0 +1,39 @@
+{
+  "name": "rxjs-leak-detector",
+  "version": "0.1.0",
+  "description": "Detect unsubscribed RxJS subscriptions in Angular dev-mode apps. One line in main.ts, no Chrome extension.",
+  "type": "module",
+  "main": "./dist/runtime/index.js",
+  "types": "./dist/runtime/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js"
+    }
+  },
+  "bin": {
+    "rxjs-leak-detector": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.runtime.json && tsc -p tsconfig.cli.json && node scripts/build-dashboard.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "dependencies": {
+    "@rld/analyzer-core": "workspace:*",
+    "source-map": "^0.7.4"
+  },
+  "devDependencies": {
+    "@rld/panel-ui": "workspace:*",
+    "happy-dom": "^14.10.1",
+    "lit": "^3.1.0",
+    "rxjs": "^7.8.1"
+  },
+  "keywords": ["rxjs", "angular", "memory-leak", "subscription", "devtools"],
+  "license": "MIT"
+}
