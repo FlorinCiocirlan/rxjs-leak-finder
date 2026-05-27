@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "RxJS Leak Detector",
+  "version": "0.1.0",
+  "description": "Detects leftover RxJS subscriptions in Angular dev-mode apps",
+  "devtools_page": "devtools.html",
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-bridge.js"],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["tagger.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "permissions": ["debugger", "scripting", "storage"],
+  "host_permissions": ["<all_urls>"]
+}
