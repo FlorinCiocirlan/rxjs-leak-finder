@@ -24,7 +24,21 @@ pnpm build      # builds all packages
 pnpm test       # runs all unit tests
 ```
 
-To test against a real Angular app, install the local package via `file:`:
+## Install in your app
+
+Install from the npm registry — this is what most users want:
+
+```sh
+npm install --save-dev rxjs-leak-finder
+# or pnpm add -D rxjs-leak-finder
+# or yarn add -D rxjs-leak-finder
+```
+
+Then follow the [package README](./packages/rxjs-leak-detector/README.md#wire-it-up) to wire it into your `main.ts`.
+
+### Contributing against a local checkout
+
+Only needed if you're hacking on this monorepo and want to try changes in a real Angular app before publishing:
 
 ```sh
 cd ../your-angular-app
