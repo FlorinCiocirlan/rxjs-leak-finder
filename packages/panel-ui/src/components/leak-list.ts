@@ -167,6 +167,7 @@ export class LeakListEl extends LitElement {
         ${filtered.length === 0
           ? html`<div class="none">No matches.</div>`
           : html`<lit-virtualizer
+              scroller
               class="scroller"
               .items=${filtered}
               .renderItem=${(l: LeakEntry) => html`<leak-row .leak=${l}></leak-row>`}

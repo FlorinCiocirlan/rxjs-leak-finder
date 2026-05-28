@@ -44,6 +44,7 @@ describe('<leak-list>', () => {
     const virt = el.shadowRoot.querySelector('lit-virtualizer') as any;
     expect(virt).toBeTruthy();
     expect(virt.items.length).toBe(2);
+    expect(virt.hasAttribute('scroller')).toBe(true);
   });
 
   it('shows "No matches." when there are no leaks', async () => {
