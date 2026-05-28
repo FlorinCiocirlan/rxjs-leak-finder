@@ -7,3 +7,4 @@ export { decodeTag } from './tag-decoder.js';
 export { resolveStack } from './source-map-resolver.js';
 export { walkDisplayChain, walkClassification } from './retainer-walker.js';
 export { classify } from './classifier.js';
+export { extractComponentName, classifyLeakKind, stripDetectorFrames } from './leak-classifier.js';

@@ -1,3 +1,10 @@
+/**
+ * Hidden property name attached to every patched Subscription. The heap-snapshot
+ * analyzer uses the same constant (mirrored in @rld/analyzer-core) to find
+ * tagged subscriptions in V8 heap dumps.
+ */
+export const META_PROP = '__sw_meta' as const;
+
 export type SubscriptionTag = {
   id: string;
   createdAtMs: number;
@@ -60,6 +67,15 @@ export type LeakReport = {
   ignoredFrameworkSubscriptions: number;
   longLivedServiceSubscriptions: LongLivedEntry[];
   totalSubscriptionsScanned: number;
+};
+
+/**
+ * Minimum shape we need from an Observable constructor: a prototype with a
+ * `subscribe` method we can patch. RxJS's `Observable` satisfies this, but so
+ * would any compatible implementation.
+ */
+export type PatchableObservable = {
+  prototype: { subscribe: (...args: unknown[]) => unknown };
 };
 
 export type EnableConfig = {

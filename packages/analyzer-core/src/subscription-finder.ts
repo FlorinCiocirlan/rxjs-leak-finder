@@ -1,4 +1,5 @@
 import type { HeapGraph } from './heap-parser.js';
+import { META_PROP } from './types.js';
 
 export type SubscriptionRef = {
   nodeIndex: number;
@@ -15,7 +16,7 @@ export function findSubscriptions(graph: HeapGraph): SubscriptionRef[] {
     if (!SUBSCRIPTION_NAMES.has(name)) continue;
     let metaIdx: number | null = null;
     for (const edge of graph.outEdges(i)) {
-      if (edge.name === '__sw_meta') {
+      if (edge.name === META_PROP) {
         metaIdx = edge.toIndex;
         break;
       }

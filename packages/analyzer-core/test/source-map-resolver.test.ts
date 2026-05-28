@@ -53,11 +53,20 @@ describe('resolveStack', () => {
     expect(frames[0]!.isFramework).toBe(true);
   });
 
-  it('treats unresolvable frame as framework with raw path', async () => {
+  it('keeps raw path for unresolvable frames and defaults to user code', async () => {
     const stack = 'Error\n    at mystery (http://elsewhere/unknown.js:5:5)';
     const frames = await resolveStack(stack, new Map());
     expect(frames).toHaveLength(1);
     expect(frames[0]!.file).toBe('http://elsewhere/unknown.js');
+    // Without a source map, only known framework URL patterns (e.g.
+    // /vite/deps/, polyfills-*, zone.js) are flagged as framework; arbitrary
+    // unresolved URLs are treated as user code.
+    expect(frames[0]!.isFramework).toBe(false);
+  });
+
+  it('flags unresolved frames as framework when URL matches a vendor pattern', async () => {
+    const stack = 'Error\n    at boot (http://localhost:4200/vite/deps/rxjs.js?v=abc:1:0)';
+    const frames = await resolveStack(stack, new Map());
     expect(frames[0]!.isFramework).toBe(true);
   });
 });

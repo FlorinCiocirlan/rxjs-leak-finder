@@ -1,245 +1,190 @@
-# rxjs-leak-detector
+# rxjs-leak-finder
 
-A dev-mode tool to detect unsubscribed RxJS subscriptions in Angular apps.
-**No Chrome extension required.** One line in `main.ts`, a floating widget in the browser, and a local dashboard that stores sessions as JSON files.
+> Find leaked RxJS subscriptions in your Angular dev-mode app.
+> One line in `main.ts`, a floating widget, a local dashboard. No Chrome extension.
+
+[![npm](https://img.shields.io/npm/v/rxjs-leak-finder.svg)](https://www.npmjs.com/package/rxjs-leak-finder)
+[![license](https://img.shields.io/npm/l/rxjs-leak-finder.svg)](./LICENSE)
+
+---
+
+## What it does
+
+You add one line to `main.ts`. The detector patches `Observable.prototype.subscribe` and starts watching. You navigate around your app and click **Stop** in the floating widget. The detector POSTs the report to a local dashboard, which highlights subscriptions that were created on a route you left without ever being unsubscribed. Each leak shows the **component**, the **file:line** where it was subscribed, and a category (`nested-subscribe`, `async-init`, `ng-init`, `global-event`, `timer`, `subject`).
+
+It works on any Angular dev-mode app — standalone or NgModule, signals or RxJS, ChangeDetectionStrategy.OnPush or default.
+
+See [HOW_IT_WORKS.md](./HOW_IT_WORKS.md) for the design and the bits that make this possible.
 
 ---
 
 ## Install
 
 ```sh
-# pnpm
-pnpm add -D rxjs-leak-detector
-
-# npm
-npm install --save-dev rxjs-leak-detector
-
-# yarn
-yarn add -D rxjs-leak-detector
+npm install --save-dev rxjs-leak-finder
+# or
+pnpm add -D rxjs-leak-finder
+# or
+yarn add -D rxjs-leak-finder
 ```
 
 ---
 
-## Hook into your app
+## Wire it up
 
-Add **one block** to your Angular `main.ts` (standalone bootstrap):
+Add one block to your Angular `main.ts`. Use `isDevMode()` so it never reaches production:
 
 ```ts
+import { isDevMode } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { Observable } from 'rxjs';
-import { enableRxjsLeakDetector } from 'rxjs-leak-detector';
+import { enableRxjsLeakDetector } from 'rxjs-leak-finder';
 import { AppComponent } from './app/app.component';
 import { appConfig } from './app/app.config';
-import { environment } from './environments/environment';
 
-if (!environment.production) {
+if (isDevMode()) {
   enableRxjsLeakDetector(Observable);
 }
 
 bootstrapApplication(AppComponent, appConfig);
 ```
 
-`enableRxjsLeakDetector` patches `Observable.prototype.subscribe` at startup and mounts a small floating widget in the top-right corner of your app.
+That's it. Reload — there's a floating widget in the top-right of your app.
+
+> Pass **your** `Observable` (the one your app imports from `rxjs`). Different bundles can produce different `Observable` classes; passing yours guarantees the right prototype gets patched.
 
 ---
 
-## Open the dashboard
+## Use it
 
-Start the local dashboard server (it persists sessions as `.rld/*.json` files):
+In one terminal, run your Angular app (`ng serve` / `npm start`).
+
+In another terminal, start the dashboard:
 
 ```sh
-npx rxjs-leak-detector dashboard
+npx rxjs-leak-finder dashboard
+# → http://localhost:7654
 ```
 
-Opens `http://localhost:7654` in your default browser.
+The dashboard auto-opens in your browser. To record a session:
+
+1. In your app: click **● Rec** on the floating widget.
+2. Navigate to the route you want to test.
+3. Navigate **away** to another route (the route change is the "boundary").
+4. Click **■ Stop**.
+5. Reload the dashboard — the session appears in the list. Click it to see the leaks.
+
+A leak is any subscription that was created on the route you left, never unsubscribed, and has at least one frame in your own code (framework subscriptions are filtered out).
 
 ---
 
-## Record a session
+## What the dashboard shows
 
-1. Navigate to the route you want to test in your browser.
-2. Click **● Rec** on the floating widget to start recording.
-3. Navigate away to another route (this triggers the "route changed" boundary).
-4. Click **■ Stop** to end the session and send the report to the dashboard.
-5. Reload the dashboard — your session appears in the list. Leaks are highlighted.
+- **KPI cards**: total leaks, subscriptions scanned, framework subscriptions ignored, long-lived service subscriptions.
+- **Breakdowns**: by leak kind, by route, by component.
+- **Search**: filter rows by component, file, route, observable kind, leak kind.
+- **Filter chips**: click a kind or a route to narrow down.
+- **Each row**: component name + observable kind on top, `file:line:col` (clickable, opens in your editor) underneath, plus colored badges for route and leak kind.
+- **Expanded row**: full resolved stack trace; click any frame to jump to it in your editor.
 
-A "leak" is any subscription that was created during the recording window, was never explicitly unsubscribed before the route changed, and has at least one user-code frame in its creation stack.
+### Leak kinds
+
+| Kind | What triggers it |
+|---|---|
+| `nested-subscribe` | A `subscribe()` was called inside another `subscribe()`. Use `switchMap` / `mergeMap` instead. |
+| `async-init` | `subscribe()` ran after an `await` in an `async ngOnInit` — outside the injection context, so `takeUntilDestroyed()` silently no-ops. |
+| `ng-init` | Plain `subscribe()` in `ngOnInit` with no teardown. |
+| `global-event` | `fromEvent(window, …)` or `addEventListener` — survives navigation because the source outlives the component. |
+| `timer` | `interval` / `timer` subscription with no teardown. |
+| `subject` | Subscribed to a module-level or service-level `Subject` / `BehaviorSubject` without teardown. |
 
 ---
 
-## Config options
+## Open in editor
 
-```ts
-enableRxjsLeakDetector(Observable, config?: EnableConfig): LeakDetectorController | null
+Clicking `file:line:col` POSTs to the dashboard server, which shells out to your editor. Default is VS Code (`code -g file:line:col`). To pick another editor:
+
+```sh
+RLD_EDITOR=idea     npx rxjs-leak-finder dashboard   # IntelliJ
+RLD_EDITOR=webstorm npx rxjs-leak-finder dashboard   # WebStorm
+RLD_EDITOR=cursor   npx rxjs-leak-finder dashboard   # Cursor
+RLD_EDITOR=subl     npx rxjs-leak-finder dashboard   # Sublime
 ```
 
-Full `EnableConfig` type:
+Recognized: `code`, `cursor`, `codium`, `idea`, `webstorm`, `pycharm`, `phpstorm`, `goland`, `rubymine`, `clion`, `datagrip`, `fleet`, `subl`, `sublime`, `atom`, `vim`, `nvim`, `emacs`. The right CLI flag is picked per editor. If the launcher isn't on PATH, the server falls back to the OS opener (no jump-to-line).
 
-```ts
-type EnableConfig = {
-  /**
-   * Disable the floating record/stop widget.
-   * Useful when you want to control recording programmatically.
-   * Default: false (widget is shown).
-   */
-  disableWidget?: boolean;
+To make it permanent: `echo 'export RLD_EDITOR=idea' >> ~/.zshrc`.
 
-  /**
-   * URL of the dashboard server.
-   * Change this if you run the dashboard on a non-default port.
-   * Default: 'http://localhost:7654'.
-   */
-  dashboardUrl?: string;
+---
 
-  /**
-   * Set to false to completely disable the detector (useful in shared
-   * bootstrap code that runs in both dev and prod builds).
-   * Default: true (enabled).
-   */
-  enabled?: boolean;
-};
-```
-
-### Examples
-
-**Headless (no widget), custom port:**
+## Config
 
 ```ts
 enableRxjsLeakDetector(Observable, {
-  disableWidget: true,
-  dashboardUrl: 'http://localhost:9000',
+  /** Don't mount the floating widget. You can still start/stop via the controller. */
+  disableWidget: false,
+  /** Where the dashboard listens. */
+  dashboardUrl: 'http://localhost:7654',
+  /** Disable everything (overrides the others). */
+  enabled: true,
 });
 ```
 
-**Guard with environment flag (recommended):**
+The call returns a `LeakDetectorController`:
 
 ```ts
-if (!environment.production) {
-  enableRxjsLeakDetector(Observable, {
-    disableWidget: false,
-  });
-}
-```
-
-**Programmatic control via the returned controller:**
-
-```ts
-const rld = enableRxjsLeakDetector(Observable, { disableWidget: true });
-
-// start recording manually
-rld?.start();
-
-// stop and send report
-await rld?.stop();
+const controller = enableRxjsLeakDetector(Observable);
+controller?.start();
+// …navigate…
+await controller?.stop();    // POSTs the report
+controller?.teardown();      // remove the patch + widget (rarely needed)
 ```
 
 ---
 
-## What counts as a "leak"?
-
-A subscription is flagged when **all** of the following are true:
-
-- It was created inside the recording window (between ● Rec and ■ Stop).
-- Its `closed` flag is still `false` when recording ends (i.e. it was never unsubscribed).
-- Its creation stack trace contains at least one frame pointing to your application code (not `node_modules`).
-
-The detector relies on the `closed` property on `Subscription`. This is accurate for
-`takeUntil`, `unsubscribe()`, and `async` pipe teardown — but **not** for subscriptions
-that are genuinely long-lived (e.g. a global store). Filter those out using stack frames
-or the `observableKind` field in the report.
-
----
-
-## Limitations compared to the Chrome extension approach
-
-| Feature | rxjs-leak-detector (this package) | Chrome extension |
-|---|---|---|
-| Retainer chains | Not available | Full JS heap retainer path |
-| Forced GC check | No | Yes (via `gc()` CDP command) |
-| "Still retained in heap" | No — uses `closed` tag only | Yes |
-| Setup | 1 line in `main.ts` | Extension install + devtools |
-| CI / headless use | Yes | No |
-
-Sessions written by this package will have an empty `retainerChain` array. The dashboard
-hides the "Retainer chain" section when it is empty.
-
----
-
-## CLI reference
-
-```
-rxjs-leak-detector dashboard [options]
-
-Options:
-  --port=<n>     Port to listen on (default: 7654)
-  --cwd=<path>   Directory where .rld/ session files are written
-                 (default: current working directory)
-  --no-open      Do not auto-open the browser after starting
-  --help, -h     Print this help message
-```
-
-### Examples
+## CLI
 
 ```sh
-# Start on a custom port without opening the browser
-npx rxjs-leak-detector dashboard --port=9000 --no-open
+rxjs-leak-finder dashboard [options]
 
-# Store sessions in a project sub-directory
-npx rxjs-leak-detector dashboard --cwd=./my-app
+  --port=<n>     Port (default 7654)
+  --cwd=<path>   Where to write .rld/ session files (default cwd)
+  --no-open      Don't auto-open the browser
+  --help, -h     Show this help
 ```
+
+Sessions are stored as `.rld/*.json` in the working directory. Add `.rld/` to `.gitignore`.
 
 ---
 
-## The `.rld/` directory
+## FAQ
 
-Each recorded session is saved as a JSON file under `.rld/` in the working directory:
+**Will it break my production build?**
+No — wrap the call in `if (isDevMode())`. The detector still ships in your bundle as a devDependency. The runtime is small (~5 kB gzipped) and inert until `enableRxjsLeakDetector` is called.
 
-```
-.rld/
-  2026-05-28T10-30-00-000Z-abc123.json
-  2026-05-28T10-35-00-000Z-def456.json
-```
+**Does it work with NgRx, RxJS interop, signals?**
+Yes. It patches the `Observable` prototype, so any subscription created from any observable in your app is tracked. Signals don't create RxJS subscriptions, so they're invisible to the detector — that's correct, since signals can't leak the way subscriptions can.
 
-Each file contains the full `RecordingMeta` (route, timestamps, navigations) and the
-list of `SubscriptionTag` objects (stack, observable kind, closed flag).
+**Does it work in production?**
+Don't run it in production. The detector captures stack traces on every `subscribe()`, which has measurable overhead.
 
-**Add `.rld/` to your `.gitignore`:**
+**False positives?**
+The biggest source of noise is long-lived service subscriptions (singletons that *should* live for the app's lifetime). The detector lists those separately as `long-lived`, not as leaks. If you see a real subscription marked as a leak that you believe is correct, open an issue with the session JSON from `.rld/`.
 
-```
-# .gitignore
-.rld/
-```
+**No leak shows up?**
+Three common causes:
+1. You didn't click **● Rec** before triggering the leak.
+2. You didn't navigate away (the detector only flags subscriptions on routes you've *left*).
+3. The subscription is in a framework path (`node_modules/`, polyfills, zone.js); those are intentionally filtered.
 
 ---
 
-## Troubleshooting
+## Architecture in one sentence
 
-**Widget not appearing**
+The detector monkey-patches `Observable.prototype.subscribe` to tag every Subscription with a stack trace, the recorder tracks route changes via the History API, the dashboard server stores reports as JSON, and the dashboard SPA classifies each leak using stack-trace heuristics. For the full story, see [HOW_IT_WORKS.md](./HOW_IT_WORKS.md).
 
-- Check that `disableWidget` is not set to `true` in your config.
-- Confirm the `if (!environment.production)` guard evaluates to `true` in your dev build.
-- Some strict CSPs block custom elements — check the browser console for errors.
+---
 
-**Dashboard shows 404 / blank page**
+## License
 
-- The static dashboard assets are bundled inside the package. Ensure you are using
-  `npx rxjs-leak-detector dashboard` (not importing the CLI file directly).
-- If you built from source, run `pnpm build` inside `packages/rxjs-leak-detector` first.
-
-**Sessions not appearing in the dashboard**
-
-- Confirm the dashboard is running before you click Stop.
-- Check the browser console for CORS or network errors on `POST /report`.
-- If the dashboard URL differs from the default, pass it via `dashboardUrl` in your config.
-
-**Source frames showing `<anonymous>` or minified paths**
-
-- The detector reads raw `Error.stack` output. For readable frames, run your dev server
-  with source maps enabled (the default for Angular CLI / Vite).
-- The dashboard proxies source-map files via `/source-maps?url=<mapUrl>` — make sure
-  your dev server is accessible from localhost.
-
-**`enableRxjsLeakDetector` called multiple times**
-
-- The function is idempotent: it returns the existing controller on subsequent calls.
-  Safe to call in lazy-loaded modules as long as the first call happened in `main.ts`.
+MIT © Florin Ciocirlan

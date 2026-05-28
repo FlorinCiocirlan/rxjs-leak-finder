@@ -1,3 +1,10 @@
+/**
+ * Hidden property name attached to every patched Subscription, holding the
+ * SubscriptionTag created at subscribe time. Shared between the runtime
+ * (recorder.ts) and the heap-snapshot analyzer (subscription-finder.ts).
+ */
+export const META_PROP = '__sw_meta' as const;
+
 export type SubscriptionTag = {
   id: string;
   createdAtMs: number;
@@ -37,12 +44,22 @@ export type RetainerNode = {
   displayName: string | null;
 };
 
+export type LeakKind =
+  | 'nested-subscribe'
+  | 'async-init'
+  | 'ng-init'
+  | 'global-event'
+  | 'timer'
+  | 'subject'
+  | 'unknown';
+
 export type LeakEntry = {
   id: string;
   route: string;
   observableKind: string;
   sourceLocation: { file: string; line: number; column: number };
   componentName: string | null;
+  leakKind?: LeakKind;
   stack: ResolvedStackFrame[];
   retainerChain: RetainerNode[];
 };

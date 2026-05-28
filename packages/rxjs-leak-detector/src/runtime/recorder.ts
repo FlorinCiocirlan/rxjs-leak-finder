@@ -1,4 +1,5 @@
 import type { SubscriptionTag, RecordingReport } from './types.js';
+import { META_PROP } from './types.js';
 import { getTrackedPath } from './route-tracker.js';
 
 function makeRecordingId(): string {
@@ -91,7 +92,7 @@ export function createRecorder() {
         recordingId: state.recordingId,
         closed: false,
       };
-      Object.defineProperty(subscription, '__sw_meta', {
+      Object.defineProperty(subscription, META_PROP, {
         value: tag,
         enumerable: false,
         writable: true,
@@ -101,7 +102,7 @@ export function createRecorder() {
     },
 
     onUnsubscribe(subscription: object): void {
-      const meta = (subscription as any).__sw_meta as SubscriptionTag | undefined;
+      const meta = (subscription as Record<string, unknown>)[META_PROP] as SubscriptionTag | undefined;
       if (!meta) return;
       meta.closed = true;
       const entry = state.subscriptions.get(meta.id);

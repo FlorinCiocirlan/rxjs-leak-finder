@@ -5,3 +5,10 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 packages/extension/test/e2e/fixtures/test-app/.angular/
+
+# IDE / editor
+.idea/
+.vscode/
+
+# Local recording sessions
+.rld/

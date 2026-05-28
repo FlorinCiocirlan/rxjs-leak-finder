@@ -1,7 +1,7 @@
 {
-  "name": "rxjs-leak-detector",
+  "name": "rxjs-leak-finder",
   "version": "0.1.0",
-  "description": "Detect unsubscribed RxJS subscriptions in Angular dev-mode apps. One line in main.ts, no Chrome extension.",
+  "description": "Find unsubscribed RxJS subscriptions in Angular dev-mode apps. One line in main.ts, no Chrome extension.",
   "type": "module",
   "main": "./dist/runtime/index.js",
   "types": "./dist/runtime/index.d.ts",
@@ -12,7 +12,7 @@
     }
   },
   "bin": {
-    "rxjs-leak-detector": "./dist/cli/index.js"
+    "rxjs-leak-finder": "./dist/cli/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.runtime.json && tsc -p tsconfig.cli.json && node scripts/build-dashboard.mjs",
@@ -22,8 +22,22 @@
   },
   "files": [
     "dist/",
-    "README.md"
+    "README.md",
+    "HOW_IT_WORKS.md",
+    "LICENSE"
   ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FlorinCiocirlan/rxjs-leak-finder.git",
+    "directory": "packages/rxjs-leak-detector"
+  },
+  "homepage": "https://github.com/FlorinCiocirlan/rxjs-leak-finder#readme",
+  "bugs": {
+    "url": "https://github.com/FlorinCiocirlan/rxjs-leak-finder/issues"
+  },
   "devDependencies": {
     "@rld/analyzer-core": "workspace:*",
     "@rld/panel-ui": "workspace:*",
@@ -33,6 +47,15 @@
     "source-map": "^0.7.4",
     "vite": "^5.2.0"
   },
-  "keywords": ["rxjs", "angular", "memory-leak", "subscription", "devtools"],
-  "license": "MIT"
+  "keywords": [
+    "rxjs",
+    "angular",
+    "memory-leak",
+    "subscription",
+    "devtools",
+    "leak-detector",
+    "observable"
+  ],
+  "license": "MIT",
+  "author": "Florin Ciocirlan"
 }

@@ -3,32 +3,64 @@ import { createRecorder } from './recorder.js';
 import { installRouteTracker } from './route-tracker.js';
 import { mountWidget, type WidgetController } from './widget.js';
 import { sendReport, flushQueue } from './transport.js';
-import type { EnableConfig } from './types.js';
+import type { EnableConfig, PatchableObservable } from './types.js';
+
+const CONTROLLER_GLOBAL_KEY = '__rldController';
 
 export type LeakDetectorController = {
+  /** Begin a recording session. Captured subscriptions are tracked until {@link stop}. */
   start(): void;
+
+  /** End the current session and POST the report to the dashboard. */
   stop(): Promise<void>;
+
+  /**
+   * Force a route boundary in the recorder. The detector tracks navigations
+   * automatically via the History API; call this if your router bypasses it
+   * (rare).
+   */
   markNavigation(): void;
+
+  /** Whether {@link start} has been called and {@link stop} has not. */
   readonly isRecording: boolean;
+
+  /**
+   * Tear down the patch and the widget. After this the page must reload before
+   * `enableRxjsLeakDetector` will work again. Useful in tests; rarely needed in apps.
+   */
+  teardown(): void;
 };
 
+/**
+ * Patch `Observable.prototype.subscribe`, mount the floating widget, and return
+ * a controller. Calling twice in the same page is a no-op (the original
+ * controller is returned).
+ *
+ * Pass your application's `Observable` class — the one from your `rxjs` import.
+ * Do **not** call this in production builds.
+ */
 export function enableRxjsLeakDetector(
-  ObservableCtor: any,
+  ObservableCtor: PatchableObservable,
   config: EnableConfig = {},
 ): LeakDetectorController | null {
-  const existing = (globalThis as any).__rldController as LeakDetectorController | undefined;
-  if (existing) return existing;
   if (config.enabled === false) return null;
+
+  const existing = (globalThis as Record<string, unknown>)[CONTROLLER_GLOBAL_KEY] as
+    | LeakDetectorController
+    | undefined;
+  if (existing) return existing;
 
   const dashboardUrl = config.dashboardUrl ?? 'http://localhost:7654';
   const recorder = createRecorder();
   installPatch(ObservableCtor, recorder);
-  const routeStop = installRouteTracker(change => recorder.recordNavigation(change));
+  const stopRouteTracker = installRouteTracker((change) => recorder.recordNavigation(change));
 
   let widget: WidgetController | null = null;
 
   const controller: LeakDetectorController = {
-    get isRecording() { return recorder.isRecording; },
+    get isRecording() {
+      return recorder.isRecording;
+    },
     start() {
       recorder.start();
       widget?.setRecording(true);
@@ -41,6 +73,11 @@ export function enableRxjsLeakDetector(
     markNavigation() {
       recorder.markNavigation();
     },
+    teardown() {
+      stopRouteTracker();
+      widget?.unmount();
+      delete (globalThis as Record<string, unknown>)[CONTROLLER_GLOBAL_KEY];
+    },
   };
 
   if (!config.disableWidget) {
@@ -51,17 +88,10 @@ export function enableRxjsLeakDetector(
     });
   }
 
-  (window as any).__rldController = controller;
+  (globalThis as Record<string, unknown>)[CONTROLLER_GLOBAL_KEY] = controller;
 
-  // Best-effort: flush any queued reports from a prior session
+  // Best-effort: drain reports queued by a previous page-load that couldn't reach the dashboard.
   void flushQueue(dashboardUrl);
-
-  // Persist routeStop in case caller wants to tear down (rarely needed)
-  (controller as any)._teardown = () => {
-    routeStop();
-    widget?.unmount();
-    delete (window as any).__rldController;
-  };
 
   return controller;
 }

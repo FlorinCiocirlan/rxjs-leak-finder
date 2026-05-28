@@ -26,7 +26,7 @@ async function runDashboard({ port, noOpen, cwd }: { port: number; noOpen: boole
   const here = fileURLToPath(import.meta.url);
   const staticDir = resolve(here, '../../dashboard');
   const handle = await startServer({ port, cwd, staticDir: existsSync(staticDir) ? staticDir : undefined });
-  console.log(`RxJS Leak Detector dashboard listening at ${handle.url}`);
+  console.log(`rxjs-leak-finder dashboard listening at ${handle.url}`);
   console.log(`Reports will be saved to ${cwd}/.rld/`);
   if (!noOpen) {
     await openInBrowser(handle.url);
@@ -49,15 +49,21 @@ async function openInBrowser(url: string): Promise<void> {
 
 function printHelp(): void {
   console.log(`
-rxjs-leak-detector — local dashboard for RxJS subscription leaks
+rxjs-leak-finder — local dashboard for RxJS subscription leaks
 
 Usage:
-  npx rxjs-leak-detector dashboard [options]
+  npx rxjs-leak-finder dashboard [options]
 
 Options:
   --port=<n>     Port to listen on (default 7654)
   --cwd=<path>   Where to write .rld/ session files (default cwd)
   --no-open      Don't auto-open the browser
   --help, -h     Show this help
+
+Environment:
+  RLD_EDITOR     Editor launcher for "open in editor" links.
+                 Recognized: code, cursor, idea, webstorm, pycharm,
+                 phpstorm, goland, rubymine, subl, vim, nvim, emacs.
+                 Defaults to 'code'.
 `.trim());
 }

@@ -76,14 +76,10 @@ importers:
         version: 7.8.2
 
   packages/rxjs-leak-detector:
-    dependencies:
+    devDependencies:
       '@rld/analyzer-core':
         specifier: workspace:*
         version: link:../analyzer-core
-      source-map:
-        specifier: ^0.7.4
-        version: 0.7.6
-    devDependencies:
       '@rld/panel-ui':
         specifier: workspace:*
         version: link:../panel-ui
@@ -96,6 +92,9 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      source-map:
+        specifier: ^0.7.4
+        version: 0.7.6
       vite:
         specifier: ^5.2.0
         version: 5.4.21(@types/node@20.19.41)

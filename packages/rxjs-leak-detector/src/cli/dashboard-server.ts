@@ -1,7 +1,9 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from 'node:http';
 import { mkdirSync, writeFileSync, readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
-import { join, resolve, extname } from 'node:path';
+import { join, resolve, extname, isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { platform } from 'node:os';
 
 export type ServerHandle = {
   url: string;
@@ -63,6 +65,9 @@ async function handleRequest(
   if (req.method === 'POST' && pathname === '/report') {
     return handleReport(req, res, rldDir);
   }
+  if (req.method === 'POST' && pathname === '/open') {
+    return handleOpen(req, res, opts.cwd);
+  }
   if (req.method === 'GET' && pathname === '/sessions') {
     return handleSessionsList(res, rldDir);
   }
@@ -71,13 +76,103 @@ async function handleRequest(
   }
   if (req.method === 'GET' && pathname === '/source-maps') {
     const mapUrl = url.searchParams.get('url');
-    return handleSourceMapProxy(res, mapUrl);
+    const raw = url.searchParams.get('raw') === '1';
+    return handleSourceMapProxy(res, mapUrl, raw);
   }
   if (req.method === 'GET' && opts.staticDir) {
     return handleStatic(res, opts.staticDir, pathname);
   }
 
   res.writeHead(404).end('Not found');
+}
+
+async function handleOpen(req: IncomingMessage, res: ServerResponse, cwd: string): Promise<void> {
+  const body = await readBody(req);
+  let payload: { file?: string; line?: number; column?: number };
+  try { payload = JSON.parse(body); }
+  catch { res.writeHead(400).end('Invalid JSON'); return; }
+
+  const resolved = resolveSourcePath(payload.file ?? '', cwd);
+  if (!resolved) {
+    res.writeHead(404, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ ok: false, error: `Could not resolve ${payload.file}` }));
+    return;
+  }
+
+  const line = Math.max(1, Number(payload.line) || 1);
+  const column = Math.max(1, Number(payload.column) || 1);
+
+  const opened = await openInEditor(resolved, line, column);
+  res.writeHead(opened.ok ? 200 : 500, { 'content-type': 'application/json' });
+  res.end(JSON.stringify(opened));
+}
+
+function resolveSourcePath(rawFile: string, cwd: string): string | null {
+  if (!rawFile) return null;
+
+  // Strip common bundler prefixes that show up in source-mapped paths.
+  let f = rawFile
+    .replace(/^webpack:\/\/\/?/, '')
+    .replace(/^vite:\/?/, '')
+    .replace(/^\.\//, '');
+
+  // Some bundles prefix with the project name: `./projectName/src/...`
+  if (isAbsolute(f) && existsSync(f)) return f;
+
+  const candidates = [
+    resolve(cwd, f),
+    resolve(cwd, 'src', f),
+    resolve(cwd, f.replace(/^[^/]+\//, '')), // strip first path segment
+  ];
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return null;
+}
+
+function buildEditorCommand(absPath: string, line: number, column: number): { cmd: string; args: string[] } {
+  const editor = (process.env.RLD_EDITOR || 'code').trim();
+  // Last path segment in case RLD_EDITOR points to a full path like /usr/local/bin/idea
+  const bin = editor.split('/').pop()!.toLowerCase();
+
+  // JetBrains IDEs: `idea --line <n> --column <n> <file>` (or `webstorm`, `pycharm`, etc.)
+  if (/^(idea|webstorm|pycharm|rubymine|phpstorm|goland|rustrover|clion|appcode|datagrip|fleet)$/.test(bin)) {
+    return { cmd: editor, args: ['--line', String(line), '--column', String(column), absPath] };
+  }
+
+  // Sublime Text / Atom: `subl file:line:col`
+  if (/^(subl|sublime|atom)$/.test(bin)) {
+    return { cmd: editor, args: [`${absPath}:${line}:${column}`] };
+  }
+
+  // Vim / Neovim / Emacs (terminal — works if user has a terminal available):
+  if (/^(vim|nvim)$/.test(bin)) {
+    return { cmd: editor, args: [`+${line}`, absPath] };
+  }
+  if (/^emacs$/.test(bin)) {
+    return { cmd: editor, args: [`+${line}:${column}`, absPath] };
+  }
+
+  // Default: VS Code / Cursor / Codium — all accept `code -g file:line:col`.
+  return { cmd: editor, args: ['-g', `${absPath}:${line}:${column}`] };
+}
+
+function openInEditor(absPath: string, line: number, column: number): Promise<{ ok: boolean; cmd?: string; error?: string }> {
+  return new Promise((resolveP) => {
+    const { cmd, args } = buildEditorCommand(absPath, line, column);
+
+    const fallback = () => {
+      const os = platform();
+      const openerCmd = os === 'darwin' ? 'open' : os === 'win32' ? 'explorer' : 'xdg-open';
+      const child = spawn(openerCmd, [absPath], { stdio: 'ignore', detached: true });
+      child.on('error', (err) => resolveP({ ok: false, error: err.message }));
+      child.on('spawn', () => { child.unref(); resolveP({ ok: true, cmd: openerCmd }); });
+    };
+
+    const child = spawn(cmd, args, { stdio: 'ignore', detached: true });
+    child.on('error', () => fallback());
+    child.on('spawn', () => { child.unref(); resolveP({ ok: true, cmd: `${cmd} ${args.join(' ')}` }); });
+  });
 }
 
 async function handleReport(req: IncomingMessage, res: ServerResponse, rldDir: string): Promise<void> {
@@ -116,15 +211,27 @@ function handleSessionGet(res: ServerResponse, rldDir: string, id: string): void
   res.end(readFileSync(file));
 }
 
-async function handleSourceMapProxy(res: ServerResponse, mapUrl: string | null): Promise<void> {
+async function handleSourceMapProxy(res: ServerResponse, mapUrl: string | null, raw = false): Promise<void> {
   if (!mapUrl) { res.writeHead(400).end('Missing url param'); return; }
   try {
     const upstream = await fetch(mapUrl);
-    if (!upstream.ok) { res.writeHead(upstream.status).end(); return; }
+    if (!upstream.ok) {
+      console.log(`[source-maps] ${mapUrl} → ${upstream.status}`);
+      res.writeHead(upstream.status).end();
+      return;
+    }
+    const text = await upstream.text();
+    if (raw) {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end(text);
+      return;
+    }
     res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(await upstream.text());
+    res.end(text);
   } catch (err) {
-    res.writeHead(502).end(String(err));
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`[source-maps] ${mapUrl} → fetch threw: ${msg}`);
+    res.writeHead(502).end(msg);
   }
 }
 
