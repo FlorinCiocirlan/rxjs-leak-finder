@@ -71,12 +71,12 @@ export type LeakReport = {
 
 /**
  * Minimum shape we need from an Observable constructor: a prototype with a
- * `subscribe` method we can patch. RxJS's `Observable` satisfies this, but so
- * would any compatible implementation.
+ * `subscribe` method we can patch. RxJS's `Observable.prototype.subscribe`
+ * uses overloads that don't satisfy strict signature types, so we type the
+ * method as `Function` — we only care that it's callable.
  */
-export type PatchableObservable = {
-  prototype: { subscribe: (...args: unknown[]) => unknown };
-};
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+export type PatchableObservable = { prototype: { subscribe: Function } };
 
 export type EnableConfig = {
   /** Disable the floating widget. Default: false. */
