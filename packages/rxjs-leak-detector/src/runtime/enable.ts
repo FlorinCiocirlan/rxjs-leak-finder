@@ -84,7 +84,6 @@ export function enableRxjsLeakDetector(
     widget = mountWidget({
       onStart: () => controller.start(),
       onStop: () => void controller.stop(),
-      onMark: () => controller.markNavigation(),
     });
   }
 

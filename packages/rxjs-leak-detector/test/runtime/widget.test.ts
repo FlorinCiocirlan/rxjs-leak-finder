@@ -7,36 +7,43 @@ afterEach(() => {
 
 describe('mountWidget', () => {
   it('injects a fixed-position widget element', () => {
-    mountWidget({ onStart: () => {}, onStop: () => {}, onMark: () => {} });
+    mountWidget({ onStart: () => {}, onStop: () => {} });
     const el = document.getElementById('__rld_widget');
     expect(el).toBeTruthy();
     expect(el!.style.position).toBe('fixed');
   });
 
   it('starts in idle state showing Rec button', () => {
-    mountWidget({ onStart: () => {}, onStop: () => {}, onMark: () => {} });
+    mountWidget({ onStart: () => {}, onStop: () => {} });
     const btn = document.querySelector('#__rld_widget button[data-action="start"]');
     expect(btn?.textContent).toContain('Rec');
   });
 
   it('calls onStart when Rec button clicked', () => {
     const onStart = vi.fn();
-    mountWidget({ onStart, onStop: () => {}, onMark: () => {} });
+    mountWidget({ onStart, onStop: () => {} });
     (document.querySelector('#__rld_widget button[data-action="start"]') as HTMLElement).click();
     expect(onStart).toHaveBeenCalled();
   });
 
   it('setRecording(true) swaps to Stop button', () => {
-    const controller = mountWidget({ onStart: () => {}, onStop: () => {}, onMark: () => {} });
+    const controller = mountWidget({ onStart: () => {}, onStop: () => {} });
     controller.setRecording(true);
     expect(document.querySelector('#__rld_widget button[data-action="stop"]')).toBeTruthy();
   });
 
   it('calls onStop when Stop button clicked', () => {
     const onStop = vi.fn();
-    const controller = mountWidget({ onStart: () => {}, onStop, onMark: () => {} });
+    const controller = mountWidget({ onStart: () => {}, onStop });
     controller.setRecording(true);
     (document.querySelector('#__rld_widget button[data-action="stop"]') as HTMLElement).click();
     expect(onStop).toHaveBeenCalled();
+  });
+
+  it('does not render a Mark Nav button when recording', () => {
+    const controller = mountWidget({ onStart: () => {}, onStop: () => {} });
+    controller.setRecording(true);
+    expect(document.querySelector('#__rld_widget button[data-action="mark"]')).toBeNull();
+    expect(document.getElementById('__rld_widget')!.textContent).not.toContain('Mark Nav');
   });
 });

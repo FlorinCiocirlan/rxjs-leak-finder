@@ -6,7 +6,6 @@ export type WidgetController = {
 type WidgetCallbacks = {
   onStart(): void;
   onStop(): void;
-  onMark(): void;
 };
 
 export function mountWidget(cb: WidgetCallbacks): WidgetController {
@@ -46,17 +45,6 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
       btn.dataset.action = 'stop';
       btn.addEventListener('click', () => cb.onStop());
       root.appendChild(btn);
-
-      const mark = document.createElement('button');
-      Object.assign(mark.style, {
-        background: '#3c4043', color: '#e8eaed', border: '1px solid #5f6368',
-        padding: '4px 10px', cursor: 'pointer', font: 'inherit',
-        borderRadius: '4px', marginLeft: '6px',
-      });
-      mark.textContent = 'Mark Nav';
-      mark.dataset.action = 'mark';
-      mark.addEventListener('click', () => cb.onMark());
-      root.appendChild(mark);
     } else {
       btn.textContent = '● Rec';
       btn.dataset.action = 'start';
