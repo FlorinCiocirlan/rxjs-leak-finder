@@ -36,15 +36,6 @@ npm install --save-dev rxjs-leak-finder
 
 Then follow the [package README](./packages/rxjs-leak-detector/README.md#wire-it-up) to wire it into your `main.ts`.
 
-### Contributing against a local checkout
-
-Only needed if you're hacking on this monorepo and want to try changes in a real Angular app before publishing:
-
-```sh
-cd ../your-angular-app
-npm install --save-dev file:../path/to/this/repo/packages/rxjs-leak-detector
-```
-
 ## License
 
 MIT © Florin Ciocirlan
