@@ -4,6 +4,7 @@ This repo is the monorepo for [`rxjs-leak-finder`](./packages/rxjs-leak-detector
 
 👉 **[Read the package README](./packages/rxjs-leak-detector/README.md)** for install + usage.
 👉 **[How it works](./packages/rxjs-leak-detector/HOW_IT_WORKS.md)** for the architecture.
+👉 **[Roadmap](./ROADMAP.md)** for what's next — heap-snapshot integration to measure how much memory each leak actually holds.
 
 ## Layout
 
