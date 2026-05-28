@@ -18,8 +18,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "lit": "^3.1.0",
-    "@rld/analyzer-core": "workspace:*"
+    "@lit-labs/virtualizer": "2.1.1",
+    "@rld/analyzer-core": "workspace:*",
+    "lit": "^3.1.0"
   },
   "devDependencies": {
     "happy-dom": "^14.10.1"

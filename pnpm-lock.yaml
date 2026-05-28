@@ -55,6 +55,9 @@ importers:
 
   packages/panel-ui:
     dependencies:
+      '@lit-labs/virtualizer':
+        specifier: 2.1.1
+        version: 2.1.1
       '@rld/analyzer-core':
         specifier: workspace:*
         version: link:../analyzer-core
@@ -268,6 +271,9 @@ packages:
 
   '@lit-labs/ssr-dom-shim@1.6.0':
     resolution: {integrity: sha512-VHb0ALPMTlgKjM6yIxxoQNnpKyUKLD04VzeQdsiXkMqkvYlAHxq9glGLmgbb889/1GsohSOAjvQYoiBppXFqrQ==}
+
+  '@lit-labs/virtualizer@2.1.1':
+    resolution: {integrity: sha512-JWxMwnlouLdwpw8spLTuax53WMnSP3xt0dCyxAS7GJr5Otda9MGgR/ghAdfwhSY75TmjbE1T2TqChwoGCw3ggw==}
 
   '@lit/reactive-element@2.1.2':
     resolution: {integrity: sha512-pbCDiVMnne1lYUIaYNN5wrwQXDtHaYtg7YEFPeW+hws6U47WeFvISGUWekPGKWOP1ygrs0ef0o1VJMk1exos5A==}
@@ -1252,6 +1258,11 @@ snapshots:
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
   '@lit-labs/ssr-dom-shim@1.6.0': {}
+
+  '@lit-labs/virtualizer@2.1.1':
+    dependencies:
+      lit: 3.3.3
+      tslib: 2.8.1
 
   '@lit/reactive-element@2.1.2':
     dependencies:
