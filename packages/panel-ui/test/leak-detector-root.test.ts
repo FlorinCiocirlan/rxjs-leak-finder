@@ -43,4 +43,28 @@ describe('<leak-detector-root>', () => {
     await el.updateComplete;
     expect(el.shadowRoot.querySelector('leak-list')).toBeTruthy();
   });
+
+  it('renders the waiting state when live with no candidates', async () => {
+    const el = document.createElement('leak-detector-root') as any;
+    el.live = true;
+    el.liveCandidates = [];
+    document.body.append(el);
+    await el.updateComplete;
+    expect(el.shadowRoot.textContent).toContain('Waiting for leaks');
+    expect(el.shadowRoot.querySelector('.live-banner')).toBeTruthy();
+  });
+
+  it('renders a leak-list of candidates when live with candidates', async () => {
+    const el = document.createElement('leak-detector-root') as any;
+    el.live = true;
+    el.liveCandidates = [{
+      id: 'a', route: '/', observableKind: 'interval',
+      sourceLocation: { file: 'src/x.ts', line: 1, column: 1 },
+      componentName: 'XComponent', stack: [], retainerChain: [],
+    }];
+    document.body.append(el);
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('leak-list')).toBeTruthy();
+    expect(el.shadowRoot.textContent).not.toContain('Waiting for leaks');
+  });
 });

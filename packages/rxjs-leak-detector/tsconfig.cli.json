@@ -1,12 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist/cli",
-    "rootDir": "./src/cli",
-    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "types": ["node"]
   },
-  "include": ["src/cli/**/*.ts"]
+  "include": ["src/cli/**/*.ts", "src/shared/**/*.ts"]
 }

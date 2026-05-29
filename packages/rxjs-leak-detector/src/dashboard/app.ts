@@ -3,6 +3,9 @@ import { SourceMapConsumer, type RawSourceMap } from 'source-map';
 import type { SubscriptionTag, LeakReport, LeakEntry, RecordingMeta, ResolvedStackFrame } from '@rld/analyzer-core';
 import { extractComponentName, classifyLeakKind, stripDetectorFrames } from '@rld/analyzer-core';
 import mappingsWasmUrl from 'source-map/lib/mappings.wasm?url';
+import { isFrameworkUrl } from '../shared/framework-filter.js';
+import { createLiveBuffer, applyDelta, type LiveBuffer } from './live-buffer.js';
+import type { SessionStart, SessionDelta } from '../shared/live-protocol.js';
 
 // Must be called once before any new SourceMapConsumer() — the library needs
 // its WASM binary to be explicitly provided in browser environments.
@@ -24,25 +27,10 @@ const FRAMEWORK_PATH_PATTERNS = [
   /^webpack:\/\/\/runtime\//,
 ];
 
-// For URLs without source maps, heuristically classify as framework if they're
-// served from Vite's pre-bundled deps area or look like runtime/polyfill bundles.
-// Everything else under the dev server is treated as user code.
-const FRAMEWORK_URL_PATTERNS = [
-  /\/vite\/deps\//,
-  /\/polyfills[-.]/,
-  /\/runtime[-.]/,
-  /\/zone\.js/,
-  /^webpack:/,
-];
-
 const FRAME_REGEX = /at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?$/;
 
 function isFrameworkPath(path: string): boolean {
   return FRAMEWORK_PATH_PATTERNS.some(p => p.test(path));
-}
-
-function isFrameworkUrl(url: string): boolean {
-  return FRAMEWORK_URL_PATTERNS.some(p => p.test(url));
 }
 
 
@@ -56,7 +44,7 @@ async function loadSession(id: string): Promise<StoredReport> {
   return res.json();
 }
 
-async function fetchSourceMap(url: string): Promise<RawSourceMap | null> {
+async function fetchSourceMapUncached(url: string): Promise<RawSourceMap | null> {
   // Mirror what browsers do: fetch the JS file, read the sourceMappingURL comment,
   // then fetch that map (which may be an inline data URI or a relative/absolute URL).
   try {
@@ -102,6 +90,15 @@ async function fetchSourceMap(url: string): Promise<RawSourceMap | null> {
     }
   }
   return null;
+}
+
+const sourceMapCache = new Map<string, RawSourceMap | null>();
+
+async function fetchSourceMap(url: string): Promise<RawSourceMap | null> {
+  if (sourceMapCache.has(url)) return sourceMapCache.get(url)!;
+  const result = await fetchSourceMapUncached(url);
+  sourceMapCache.set(url, result);
+  return result;
 }
 
 function resolveStackSync(
@@ -292,5 +289,55 @@ document.addEventListener('rld-open-source', async (e: Event) => {
   }
 });
 
+let liveBuf: LiveBuffer | null = null;
+let liveRecordingId: string | null = null;
+
+function connectLive(): void {
+  const es = new EventSource('/live');
+
+  es.addEventListener('session-start', (e) => {
+    const start = JSON.parse((e as MessageEvent).data) as SessionStart;
+    liveRecordingId = start.recordingId;
+    liveBuf = createLiveBuffer(start.initialRoute);
+    root.live = true;
+    root.liveCandidates = [];
+    root.error = null;
+  });
+
+  es.addEventListener('delta', (e) => {
+    if (!liveBuf || !liveRecordingId) return;
+    const delta = JSON.parse((e as MessageEvent).data) as SessionDelta;
+    if (delta.recordingId !== liveRecordingId) return;
+    applyDelta(liveBuf, delta);
+    void renderLive();
+  });
+
+  es.addEventListener('session-end', async () => {
+    root.live = false;
+    liveBuf = null;
+    liveRecordingId = null;
+    await refresh();
+    const first = sessionsEl.querySelector('.session') as HTMLElement | null;
+    first?.click();
+  });
+}
+
+async function renderLive(): Promise<void> {
+  if (!liveBuf || !liveRecordingId) return;
+  const stored: StoredReport = {
+    meta: {
+      recordingId: liveRecordingId,
+      initialRoute: liveBuf.navigations[0]?.fromRoute ?? liveBuf.currentRoute,
+      startedAtMs: 0,
+      stoppedAtMs: 0,
+      navigations: liveBuf.navigations,
+    },
+    subscriptions: [...liveBuf.subscriptions.values()],
+  };
+  const report = await buildReport(stored);
+  if (root.live) root.liveCandidates = report.leaks;
+}
+
 void refresh();
 setInterval(refresh, 3000);
+connectLive();

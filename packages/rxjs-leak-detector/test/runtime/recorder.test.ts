@@ -58,4 +58,64 @@ describe('createRecorder', () => {
     expect(report.meta.navigations).toHaveLength(1);
     expect(report.meta.navigations[0]!.toRoute).toBe('/about');
   });
+
+  it('drainDelta returns accumulated changes then clears them', () => {
+    window.history.replaceState({}, '', '/a');
+    recorder.start();
+    const sub: any = {};
+    recorder.onSubscribe(sub, { constructor: { name: 'Interval' } }, 'Error');
+    recorder.recordNavigation({ from: '/a', to: '/b' });
+
+    const d1 = recorder.drainDelta();
+    expect(d1.added).toHaveLength(1);
+    expect(d1.navigations).toHaveLength(1);
+    expect(d1.currentRoute).toBe('/b');
+    expect(d1.seq).toBe(1);
+
+    const d2 = recorder.drainDelta(); // nothing new — heartbeat
+    expect(d2.added).toHaveLength(0);
+    expect(d2.navigations).toHaveLength(0);
+    expect(d2.closedIds).toHaveLength(0);
+    expect(d2.seq).toBe(2);
+  });
+
+  it('drainDelta reports unsubscribes via closedIds', () => {
+    recorder.start();
+    const sub: any = {};
+    recorder.onSubscribe(sub, { constructor: { name: 'Observable' } }, 'Error');
+    recorder.drainDelta(); // flush the add
+    recorder.onUnsubscribe(sub);
+    const d = recorder.drainDelta();
+    expect(d.closedIds).toEqual([sub.__sw_meta.id]);
+  });
+
+  it('liveCandidateCount counts open subs on left routes with a user frame', () => {
+    window.history.replaceState({}, '', '/a');
+    recorder.start();
+    const userStack = 'Error\n    at Foo (http://localhost/src/foo.ts:1:1)';
+    const leaking: any = {};
+    recorder.onSubscribe(leaking, { constructor: { name: 'Interval' } }, userStack);
+    recorder.recordNavigation({ from: '/a', to: '/b' }); // /a is now "left"
+    expect(recorder.liveCandidateCount()).toBe(1);
+
+    recorder.onUnsubscribe(leaking); // cleaned up → no longer a candidate
+    expect(recorder.liveCandidateCount()).toBe(0);
+  });
+
+  it('liveCandidateCount ignores framework-only stacks', () => {
+    window.history.replaceState({}, '', '/a');
+    recorder.start();
+    const fwStack = 'Error\n    at x (http://localhost/zone.js:1:1)';
+    const sub: any = {};
+    recorder.onSubscribe(sub, { constructor: { name: 'Observable' } }, fwStack);
+    recorder.recordNavigation({ from: '/a', to: '/b' });
+    expect(recorder.liveCandidateCount()).toBe(0);
+  });
+
+  it('exposes initialRoute and startedAtMs after start', () => {
+    window.history.replaceState({}, '', '/start-here');
+    recorder.start();
+    expect(recorder.initialRoute).toBe('/start-here');
+    expect(typeof recorder.startedAtMs).toBe('number');
+  });
 });
