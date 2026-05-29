@@ -1,6 +1,6 @@
 {
   "name": "rxjs-leak-finder",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Find unsubscribed RxJS subscriptions in Angular dev-mode apps. One line in main.ts, no Chrome extension.",
   "type": "module",
   "main": "./dist/runtime/index.js",
