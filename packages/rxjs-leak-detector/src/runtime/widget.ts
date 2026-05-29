@@ -34,14 +34,16 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
   // --- draggable behavior ---
   let pointerStart: { x: number; y: number; left: number; top: number } | null = null;
   let moved = false;
+  let captured = false;
 
   root.addEventListener('pointerdown', (e) => {
     const rect = root.getBoundingClientRect();
     pointerStart = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top };
     moved = false;
-    if (e.pointerId != null && typeof root.setPointerCapture === 'function') {
-      root.setPointerCapture(e.pointerId);
-    }
+    // Do NOT capture the pointer here. Capturing on pointerdown redirects the
+    // trailing `click` to this root (the capture target) instead of the button,
+    // so the button's own click handler never fires — the Rec/Stop button would
+    // appear dead. We only capture once an actual drag begins (see pointermove).
   });
 
   root.addEventListener('pointermove', (e) => {
@@ -49,6 +51,12 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
     const dx = e.clientX - pointerStart.x;
     const dy = e.clientY - pointerStart.y;
     if (!moved && Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return;
+    if (!moved && e.pointerId != null && typeof root.setPointerCapture === 'function') {
+      // A drag has started — capture so move/up keep flowing if the pointer
+      // leaves the widget. Done here (not on pointerdown) to keep plain clicks working.
+      root.setPointerCapture(e.pointerId);
+      captured = true;
+    }
     moved = true;
     root.style.right = 'auto';
     root.style.bottom = 'auto';
@@ -57,9 +65,10 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
   });
 
   const endDrag = (e: PointerEvent) => {
-    if (e.pointerId != null && typeof root.releasePointerCapture === 'function') {
+    if (captured && e.pointerId != null && typeof root.releasePointerCapture === 'function') {
       root.releasePointerCapture(e.pointerId);
     }
+    captured = false;
     pointerStart = null;
   };
   root.addEventListener('pointerup', endDrag);
