@@ -12,3 +12,5 @@ packages/extension/test/e2e/fixtures/test-app/.angular/
 
 # Local recording sessions
 .rld/
+
+.superpowers/
