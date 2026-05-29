@@ -1,5 +1,6 @@
 export type WidgetController = {
   setRecording(recording: boolean): void;
+  setLeakCount(n: number): void;
   unmount(): void;
 };
 
@@ -9,6 +10,14 @@ type WidgetCallbacks = {
 };
 
 const DRAG_THRESHOLD = 4;
+
+function ensurePulseStyle(): void {
+  if (document.getElementById('__rld_pulse_style')) return;
+  const style = document.createElement('style');
+  style.id = '__rld_pulse_style';
+  style.textContent = '@keyframes __rld_pulse{0%{opacity:1}50%{opacity:.3}100%{opacity:1}}';
+  document.head.appendChild(style);
+}
 
 export function mountWidget(cb: WidgetCallbacks): WidgetController {
   const root = document.createElement('div');
@@ -88,6 +97,7 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
   );
 
   let recording = false;
+  let leakCount = 0;
 
   const render = () => {
     root.innerHTML = '';
@@ -102,6 +112,18 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
       borderRadius: '4px',
     });
     if (recording) {
+      const status = document.createElement('span');
+      status.dataset.role = 'live';
+      status.style.marginRight = '8px';
+      const dot = document.createElement('span');
+      Object.assign(dot.style, {
+        display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%',
+        background: '#f28b82', marginRight: '5px', animation: '__rld_pulse 1.4s infinite',
+      });
+      status.appendChild(dot);
+      status.appendChild(document.createTextNode(`Rec · ${leakCount}`));
+      root.appendChild(status);
+
       btn.textContent = '■ Stop';
       btn.dataset.action = 'stop';
       btn.addEventListener('click', (e) => { if (!e.defaultPrevented) cb.onStop(); });
@@ -114,11 +136,13 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
     }
   };
 
+  ensurePulseStyle();
   render();
   document.body.appendChild(root);
 
   return {
     setRecording(r: boolean) { recording = r; render(); },
+    setLeakCount(n: number) { leakCount = n; if (recording) render(); },
     unmount() { root.remove(); },
   };
 }

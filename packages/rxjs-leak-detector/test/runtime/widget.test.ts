@@ -119,4 +119,19 @@ describe('mountWidget', () => {
     btn.dispatchEvent(pointer('click', 160, 140));
     expect(onStart).toHaveBeenCalledTimes(1);
   });
+
+  it('exposes setLeakCount and shows the count while recording', () => {
+    const controller = mountWidget({ onStart: () => {}, onStop: () => {} });
+    controller.setRecording(true);
+    controller.setLeakCount(3);
+    const widget = document.getElementById('__rld_widget')!;
+    expect(widget.textContent).toContain('3');
+    expect(widget.querySelector('button[data-action="stop"]')).toBeTruthy();
+  });
+
+  it('setLeakCount before recording does not throw and shows nothing live', () => {
+    const controller = mountWidget({ onStart: () => {}, onStop: () => {} });
+    expect(() => controller.setLeakCount(5)).not.toThrow();
+    expect(document.querySelector('#__rld_widget button[data-action="start"]')).toBeTruthy();
+  });
 });

@@ -26,8 +26,7 @@ export function startLiveEmitter(args: {
     if (!recorder.isRecording) return;
     const delta = recorder.drainDelta();
     void post(`${dashboardUrl}/session/${recordingId}/delta`, delta);
-    // setLeakCount is added to WidgetController in a later task — use optional call
-    (widget as any)?.setLeakCount?.(recorder.liveCandidateCount());
+    widget?.setLeakCount(recorder.liveCandidateCount());
   };
 
   const timer = setInterval(drainNow, HEARTBEAT_MS);
