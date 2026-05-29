@@ -88,6 +88,7 @@ export function enableRxjsLeakDetector(
     },
     markNavigation() {
       recorder.markNavigation();
+      emitter?.drainNow();
     },
     teardown() {
       stopRouteTracker();
