@@ -79,6 +79,10 @@ export async function startServer(opts: StartServerOptions): Promise<ServerHandl
       }
     }
   }, SWEEP_MS);
+  // Don't let the keep-alive/sweep timers hold the event loop open if the CLI
+  // exits without calling close() (e.g. an unhandled error).
+  ping.unref();
+  sweep.unref();
 
   return {
     url: `http://localhost:${port}`,
@@ -304,7 +308,7 @@ async function handleReport(req: IncomingMessage, res: ServerResponse, rldDir: s
   const recordingId = report?.meta?.recordingId ?? randomUUID();
   const fileName = `${new Date().toISOString().replace(/[:.]/g, '-')}-${recordingId}.json`;
   writeFileSync(join(rldDir, fileName), JSON.stringify(report, null, 2));
-  if (hub.live.has(recordingId)) hub.live.delete(recordingId);
+  hub.live.delete(recordingId);
   broadcast(hub, 'session-end', { recordingId, fileName });
   res.writeHead(200, { 'content-type': 'application/json' });
   res.end(JSON.stringify({ ok: true, fileName }));
