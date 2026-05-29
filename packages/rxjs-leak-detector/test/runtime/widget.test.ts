@@ -93,13 +93,33 @@ describe('mountWidget', () => {
     expect(onStart).toHaveBeenCalledTimes(1);
   });
 
-  it('captures the pointer only once a drag crosses the threshold', () => {
+  it('starts dragging once movement crosses the threshold, without capturing the pointer', () => {
     mountWidget({ onStart: () => {}, onStop: () => {} });
     const root = document.getElementById('__rld_widget')!;
     root.dispatchEvent(pointer('pointerdown', 100, 100));
-    expect(captureCalls).toEqual([]);
+    // Below threshold: no drag yet.
+    root.dispatchEvent(pointer('pointermove', 102, 101));
+    expect(root.style.left).toBe('');
+    // Past threshold: drags — and never calls setPointerCapture.
     root.dispatchEvent(pointer('pointermove', 160, 140));
-    expect(captureCalls).toEqual([1]);
+    expect(root.style.left).toBe('60px');
+    expect(captureCalls).toEqual([]);
+  });
+
+  it('keeps dragging when the pointer leaves the widget (moves land on document)', () => {
+    // Regression: drag died if the pointer left the widget bounds before capture
+    // engaged — e.g. grabbing the left edge and dragging left. Move listeners now
+    // live on `document`, so moves are received wherever the pointer goes.
+    mountWidget({ onStart: () => {}, onStop: () => {} });
+    const root = document.getElementById('__rld_widget')!;
+    root.dispatchEvent(pointer('pointerdown', 100, 100));
+    // Pointer moves OFF the widget — the event originates on the page body and
+    // never bubbles through root. It must still drag. (rect starts at 0,0 in
+    // happy-dom, so final left/top equal the deltas from the 100,100 press.)
+    document.body.dispatchEvent(pointer('pointermove', 300, 250));
+    document.body.dispatchEvent(pointer('pointerup', 300, 250));
+    expect(root.style.left).toBe('200px');
+    expect(root.style.top).toBe('150px');
   });
 
   it('a drag suppresses the button click but a plain click does not', () => {

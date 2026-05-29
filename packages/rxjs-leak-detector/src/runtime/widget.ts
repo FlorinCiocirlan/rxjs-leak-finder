@@ -41,47 +41,47 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
   });
 
   // --- draggable behavior ---
+  // The move/up listeners live on `document`, added on pointerdown and removed
+  // on pointerup. That way the drag receives every move no matter where the
+  // pointer travels — including off the widget in any direction. (The earlier
+  // approach listened on the widget itself and lazily called setPointerCapture
+  // inside pointermove; if the pointer left the widget before that first move
+  // registered — e.g. grabbing the left edge and dragging left — capture never
+  // engaged and the drag died. That was the "can't drag left" bug.)
+  //
+  // We deliberately do NOT use setPointerCapture: capturing retargets the
+  // trailing `click` to root, which kills the Rec/Stop button.
   let pointerStart: { x: number; y: number; left: number; top: number } | null = null;
   let moved = false;
-  let captured = false;
 
-  root.addEventListener('pointerdown', (e) => {
-    const rect = root.getBoundingClientRect();
-    pointerStart = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top };
-    moved = false;
-    // Do NOT capture the pointer here. Capturing on pointerdown redirects the
-    // trailing `click` to this root (the capture target) instead of the button,
-    // so the button's own click handler never fires — the Rec/Stop button would
-    // appear dead. We only capture once an actual drag begins (see pointermove).
-  });
-
-  root.addEventListener('pointermove', (e) => {
+  const onMove = (e: PointerEvent) => {
     if (!pointerStart) return;
     const dx = e.clientX - pointerStart.x;
     const dy = e.clientY - pointerStart.y;
     if (!moved && Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return;
-    if (!moved && e.pointerId != null && typeof root.setPointerCapture === 'function') {
-      // A drag has started — capture so move/up keep flowing if the pointer
-      // leaves the widget. Done here (not on pointerdown) to keep plain clicks working.
-      root.setPointerCapture(e.pointerId);
-      captured = true;
-    }
     moved = true;
     root.style.right = 'auto';
     root.style.bottom = 'auto';
     root.style.left = `${pointerStart.left + dx}px`;
     root.style.top = `${pointerStart.top + dy}px`;
-  });
-
-  const endDrag = (e: PointerEvent) => {
-    if (captured && e.pointerId != null && typeof root.releasePointerCapture === 'function') {
-      root.releasePointerCapture(e.pointerId);
-    }
-    captured = false;
-    pointerStart = null;
   };
-  root.addEventListener('pointerup', endDrag);
-  root.addEventListener('pointercancel', endDrag);
+
+  const onUp = () => {
+    pointerStart = null;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    // `moved` stays set until the click handler below consumes it.
+  };
+
+  root.addEventListener('pointerdown', (e) => {
+    const rect = root.getBoundingClientRect();
+    pointerStart = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top };
+    moved = false;
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+  });
 
   // Swallow the click that trails a drag so it never toggles recording.
   root.addEventListener(
