@@ -1,7 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { LeakReport } from '@rld/analyzer-core';
-import './record-controls.js';
 import './leak-list.js';
 import './leak-summary.js';
 import './long-lived-section.js';
@@ -10,7 +9,6 @@ import './empty-state.js';
 @customElement('leak-detector-root')
 export class LeakDetectorRoot extends LitElement {
   @property({ type: Object }) report: LeakReport | null = null;
-  @property({ type: Boolean }) isRecording = false;
   @property() error: string | null = null;
   @property() progressPhase: 'capturing' | 'analyzing' | 'fetching-maps' | null = null;
 
@@ -29,7 +27,6 @@ export class LeakDetectorRoot extends LitElement {
   render() {
     return html`
       <div>
-        <record-controls .isRecording=${this.isRecording}></record-controls>
         ${this.error ? html`<div class="error">${this.error}</div>` : ''}
         ${this.renderProgress()}
         ${this.report ? html`

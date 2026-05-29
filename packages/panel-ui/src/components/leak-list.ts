@@ -2,6 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { LeakEntry } from '@rld/analyzer-core';
 import './leak-row.js';
+import '@lit-labs/virtualizer';
 
 @customElement('leak-list')
 export class LeakListEl extends LitElement {
@@ -66,6 +67,7 @@ export class LeakListEl extends LitElement {
       border-radius: 4px 4px 0 0;
     }
     .none { color: #5f6368; padding: 12px 8px; font-style: italic; }
+    .scroller { display: block; max-height: 70vh; overflow: auto; }
   `;
 
   private tally(key: (l: LeakEntry) => string | null | undefined): Array<[string, number]> {
@@ -164,7 +166,12 @@ export class LeakListEl extends LitElement {
         </div>
         ${filtered.length === 0
           ? html`<div class="none">No matches.</div>`
-          : html`<div>${filtered.map((l) => html`<leak-row .leak=${l}></leak-row>`)}</div>`}
+          : html`<lit-virtualizer
+              scroller
+              class="scroller"
+              .items=${filtered}
+              .renderItem=${(l: LeakEntry) => html`<leak-row .leak=${l}></leak-row>`}
+            ></lit-virtualizer>`}
       </div>
     `;
   }

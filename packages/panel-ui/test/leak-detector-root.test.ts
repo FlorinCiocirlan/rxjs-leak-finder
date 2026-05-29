@@ -11,6 +11,13 @@ describe('<leak-detector-root>', () => {
     expect(el.shadowRoot.querySelector('empty-state')).toBeTruthy();
   });
 
+  it('does not render record-controls', async () => {
+    const el = document.createElement('leak-detector-root') as any;
+    document.body.append(el);
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('record-controls')).toBeNull();
+  });
+
   it('renders error banner when error is set', async () => {
     const el = document.createElement('leak-detector-root') as any;
     el.error = 'Boom';

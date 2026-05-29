@@ -15,9 +15,6 @@ port.onMessage.addListener((msg: BackgroundToPanel) => {
 
 (window as any).__rldSend = (msg: PanelToBackground) => port.postMessage(msg);
 
-document.addEventListener('rld-start', () => port.postMessage({ type: 'START_RECORDING', tabId } as PanelToBackground));
-document.addEventListener('rld-stop', () => port.postMessage({ type: 'STOP_RECORDING', tabId } as PanelToBackground));
-document.addEventListener('rld-mark', () => port.postMessage({ type: 'MARK_NAVIGATION', tabId } as PanelToBackground));
 document.addEventListener('rld-open-source', (e: Event) => {
   const detail = (e as CustomEvent).detail as { file: string; line: number; column: number };
   chrome.devtools.panels.openResource(detail.file, detail.line, () => {});

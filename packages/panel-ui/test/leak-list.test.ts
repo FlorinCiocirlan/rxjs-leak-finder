@@ -1,61 +1,66 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import type { LeakReport } from '@rld/analyzer-core';
+import type { LeakEntry } from '@rld/analyzer-core';
 import '../src/components/leak-list.js';
 
-const sampleReport: LeakReport = {
-  totalSubscriptionsScanned: 1,
-  ignoredFrameworkSubscriptions: 0,
-  longLivedServiceSubscriptions: [],
-  leaks: [
-    {
-      id: 'sub-1',
-      route: '/products',
-      observableKind: 'interval',
-      sourceLocation: { file: 'src/app/products.component.ts', line: 47, column: 4 },
-      componentName: 'ProductListComponent',
-      stack: [
-        { rawFrame: '', file: 'src/app/products.component.ts', line: 47, column: 4, isFramework: false, functionName: 'ngOnInit' },
-      ],
-      retainerChain: [
-        { nodeId: 1, constructorName: 'ProductListComponent', displayName: 'ProductListComponent' },
-      ],
-    },
-  ],
-};
+const leaks: LeakEntry[] = [
+  {
+    id: 'sub-1',
+    route: '/products',
+    observableKind: 'interval',
+    sourceLocation: { file: 'src/app/products.component.ts', line: 47, column: 4 },
+    componentName: 'ProductListComponent',
+    stack: [],
+    retainerChain: [],
+  },
+  {
+    id: 'sub-2',
+    route: '/cart',
+    observableKind: 'fromEvent',
+    sourceLocation: { file: 'src/app/cart.component.ts', line: 12, column: 2 },
+    componentName: 'CartComponent',
+    stack: [],
+    retainerChain: [],
+  },
+];
 
 describe('<leak-list>', () => {
-  beforeEach(() => { document.body.innerHTML = ''; });
-
-  it('renders one row per leak', async () => {
-    const el = document.createElement('leak-list') as any;
-    el.leaks = sampleReport.leaks;
-    document.body.append(el);
-    await el.updateComplete;
-    const rows = el.shadowRoot.querySelectorAll('leak-row');
-    expect(rows.length).toBe(1);
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    if (!('IntersectionObserver' in globalThis)) {
+      (globalThis as any).IntersectionObserver = class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+        takeRecords() { return []; }
+      };
+    }
   });
 
-  it('shows file:line and component in row', async () => {
+  it('binds all leaks to the virtualizer', async () => {
     const el = document.createElement('leak-list') as any;
-    el.leaks = sampleReport.leaks;
+    el.leaks = leaks;
     document.body.append(el);
     await el.updateComplete;
-    const row = el.shadowRoot.querySelector('leak-row') as any;
-    await row.updateComplete;
-    expect(row.shadowRoot.textContent).toContain('products.component.ts:47');
-    expect(row.shadowRoot.textContent).toContain('ProductListComponent');
-    expect(row.shadowRoot.textContent).toContain('interval');
+    const virt = el.shadowRoot.querySelector('lit-virtualizer') as any;
+    expect(virt).toBeTruthy();
+    expect(virt.items.length).toBe(2);
+    expect(virt.hasAttribute('scroller')).toBe(true);
   });
 
-  it('expands to show detail on row click', async () => {
+  it('shows "No matches." when there are no leaks', async () => {
     const el = document.createElement('leak-list') as any;
-    el.leaks = sampleReport.leaks;
+    el.leaks = [];
     document.body.append(el);
     await el.updateComplete;
-    const row = el.shadowRoot.querySelector('leak-row') as any;
-    await row.updateComplete;
-    row.shadowRoot.querySelector('.summary')!.click();
-    await row.updateComplete;
-    expect(row.shadowRoot.querySelector('leak-detail')).toBeTruthy();
+    expect(el.shadowRoot.querySelector('lit-virtualizer')).toBeNull();
+    expect(el.shadowRoot.textContent).toContain('No matches.');
+  });
+
+  it('reports the filtered count in the results meta', async () => {
+    const el = document.createElement('leak-list') as any;
+    el.leaks = leaks;
+    document.body.append(el);
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('.results-meta')!.textContent).toContain('Showing 2 of 2');
   });
 });
