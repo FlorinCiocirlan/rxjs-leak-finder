@@ -36,4 +36,19 @@ describe('enableRxjsLeakDetector', () => {
     const b = enableRxjsLeakDetector(Observable);
     expect(a).toBe(b);
   });
+
+  it('POSTs /session/start when recording starts and /report on stop', async () => {
+    const calls: string[] = [];
+    global.fetch = ((url: string) => {
+      calls.push(String(url));
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    }) as any;
+
+    const controller = enableRxjsLeakDetector(Observable, { dashboardUrl: 'http://d', disableWidget: true })!;
+    controller.start();
+    expect(calls.some(u => u.endsWith('/session/start'))).toBe(true);
+    await controller.stop();
+    expect(calls.some(u => u.endsWith('/report'))).toBe(true);
+    controller.teardown();
+  });
 });
