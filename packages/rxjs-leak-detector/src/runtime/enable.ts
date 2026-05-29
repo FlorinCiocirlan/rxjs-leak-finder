@@ -3,6 +3,7 @@ import { createRecorder } from './recorder.js';
 import { installRouteTracker } from './route-tracker.js';
 import { mountWidget, type WidgetController } from './widget.js';
 import { sendReport, flushQueue } from './transport.js';
+import { startLiveEmitter, type LiveEmitter } from './live-emitter.js';
 import type { EnableConfig, PatchableObservable } from './types.js';
 
 const CONTROLLER_GLOBAL_KEY = '__rldController';
@@ -53,7 +54,12 @@ export function enableRxjsLeakDetector(
   const dashboardUrl = config.dashboardUrl ?? 'http://localhost:7654';
   const recorder = createRecorder();
   installPatch(ObservableCtor, recorder);
-  const stopRouteTracker = installRouteTracker((change) => recorder.recordNavigation(change));
+  let emitter: LiveEmitter | null = null;
+
+  const stopRouteTracker = installRouteTracker((change) => {
+    recorder.recordNavigation(change);
+    emitter?.drainNow();
+  });
 
   let widget: WidgetController | null = null;
 
@@ -64,14 +70,25 @@ export function enableRxjsLeakDetector(
     start() {
       recorder.start();
       widget?.setRecording(true);
+      emitter = startLiveEmitter({
+        recorder,
+        dashboardUrl,
+        recordingId: recorder.currentRecordingId!,
+        initialRoute: recorder.initialRoute,
+        startedAtMs: recorder.startedAtMs,
+        widget,
+      });
     },
     async stop() {
+      emitter?.stop();
+      emitter = null;
       const report = recorder.stop();
       widget?.setRecording(false);
       await sendReport(report, dashboardUrl);
     },
     markNavigation() {
       recorder.markNavigation();
+      emitter?.drainNow();
     },
     teardown() {
       stopRouteTracker();

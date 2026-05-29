@@ -1,6 +1,8 @@
-import type { SubscriptionTag, RecordingReport } from './types.js';
+import type { SubscriptionTag, RecordingReport, NavigationEvent } from './types.js';
 import { META_PROP } from './types.js';
 import { getTrackedPath } from './route-tracker.js';
+import type { SessionDelta } from '../shared/live-protocol.js';
+import { topUserFrameUrl } from '../shared/framework-filter.js';
 
 function makeRecordingId(): string {
   return `rec-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -27,6 +29,10 @@ export function createRecorder() {
     startedAtMs: number;
     navigations: Array<{ fromRoute: string; toRoute: string; atMs: number }>;
     subscriptions: Map<string, { tag: SubscriptionTag }>;
+    seq: number;
+    pendingAdded: SubscriptionTag[];
+    pendingClosedIds: string[];
+    pendingNavs: NavigationEvent[];
   };
 
   const state: State = {
@@ -37,11 +43,17 @@ export function createRecorder() {
     startedAtMs: 0,
     navigations: [],
     subscriptions: new Map(),
+    seq: 0,
+    pendingAdded: [],
+    pendingClosedIds: [],
+    pendingNavs: [],
   };
 
   return {
     get isRecording() { return state.isRecording; },
     get currentRecordingId() { return state.recordingId; },
+    get initialRoute() { return state.initialRoute; },
+    get startedAtMs() { return state.startedAtMs; },
 
     start(): void {
       const initial = getTrackedPath();
@@ -52,6 +64,10 @@ export function createRecorder() {
       state.startedAtMs = Date.now();
       state.navigations = [];
       state.subscriptions = new Map();
+      state.seq = 0;
+      state.pendingAdded = [];
+      state.pendingClosedIds = [];
+      state.pendingNavs = [];
     },
 
     stop(): RecordingReport {
@@ -72,12 +88,14 @@ export function createRecorder() {
       const next = getTrackedPath();
       if (next === state.currentRoute) return;
       state.navigations.push({ fromRoute: state.currentRoute, toRoute: next, atMs: Date.now() });
+      state.pendingNavs.push({ fromRoute: state.currentRoute, toRoute: next, atMs: Date.now() });
       state.currentRoute = next;
     },
 
     recordNavigation(change: { from: string; to: string }): void {
       if (!state.isRecording) return;
       state.navigations.push({ fromRoute: change.from, toRoute: change.to, atMs: Date.now() });
+      state.pendingNavs.push({ fromRoute: change.from, toRoute: change.to, atMs: Date.now() });
       state.currentRoute = change.to;
     },
 
@@ -99,6 +117,7 @@ export function createRecorder() {
         configurable: true,
       });
       state.subscriptions.set(tag.id, { tag });
+      state.pendingAdded.push(tag);
     },
 
     onUnsubscribe(subscription: object): void {
@@ -106,7 +125,39 @@ export function createRecorder() {
       if (!meta) return;
       meta.closed = true;
       const entry = state.subscriptions.get(meta.id);
-      if (entry) entry.tag.closed = true;
+      if (entry) {
+        entry.tag.closed = true;
+        state.pendingClosedIds.push(meta.id);
+      }
+    },
+
+    drainDelta(): SessionDelta {
+      state.seq += 1;
+      const delta: SessionDelta = {
+        recordingId: state.recordingId ?? '',
+        seq: state.seq,
+        navigations: state.pendingNavs.slice(),
+        added: state.pendingAdded.slice(),
+        closedIds: state.pendingClosedIds.slice(),
+        currentRoute: state.currentRoute,
+      };
+      state.pendingNavs = [];
+      state.pendingAdded = [];
+      state.pendingClosedIds = [];
+      return delta;
+    },
+
+    liveCandidateCount(): number {
+      const leftRoutes = new Set<string>();
+      for (const nav of state.navigations) leftRoutes.add(nav.fromRoute);
+      let count = 0;
+      for (const { tag } of state.subscriptions.values()) {
+        if (tag.closed) continue;
+        if (!leftRoutes.has(tag.route)) continue;
+        if (topUserFrameUrl(tag.stackRaw) == null) continue;
+        count++;
+      }
+      return count;
     },
   };
 }

@@ -1,5 +1,6 @@
 export type WidgetController = {
   setRecording(recording: boolean): void;
+  setLeakCount(n: number): void;
   unmount(): void;
 };
 
@@ -9,6 +10,14 @@ type WidgetCallbacks = {
 };
 
 const DRAG_THRESHOLD = 4;
+
+function ensurePulseStyle(): void {
+  if (document.getElementById('__rld_pulse_style')) return;
+  const style = document.createElement('style');
+  style.id = '__rld_pulse_style';
+  style.textContent = '@keyframes __rld_pulse{0%{opacity:1}50%{opacity:.3}100%{opacity:1}}';
+  document.head.appendChild(style);
+}
 
 export function mountWidget(cb: WidgetCallbacks): WidgetController {
   const root = document.createElement('div');
@@ -34,14 +43,16 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
   // --- draggable behavior ---
   let pointerStart: { x: number; y: number; left: number; top: number } | null = null;
   let moved = false;
+  let captured = false;
 
   root.addEventListener('pointerdown', (e) => {
     const rect = root.getBoundingClientRect();
     pointerStart = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top };
     moved = false;
-    if (e.pointerId != null && typeof root.setPointerCapture === 'function') {
-      root.setPointerCapture(e.pointerId);
-    }
+    // Do NOT capture the pointer here. Capturing on pointerdown redirects the
+    // trailing `click` to this root (the capture target) instead of the button,
+    // so the button's own click handler never fires — the Rec/Stop button would
+    // appear dead. We only capture once an actual drag begins (see pointermove).
   });
 
   root.addEventListener('pointermove', (e) => {
@@ -49,6 +60,12 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
     const dx = e.clientX - pointerStart.x;
     const dy = e.clientY - pointerStart.y;
     if (!moved && Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return;
+    if (!moved && e.pointerId != null && typeof root.setPointerCapture === 'function') {
+      // A drag has started — capture so move/up keep flowing if the pointer
+      // leaves the widget. Done here (not on pointerdown) to keep plain clicks working.
+      root.setPointerCapture(e.pointerId);
+      captured = true;
+    }
     moved = true;
     root.style.right = 'auto';
     root.style.bottom = 'auto';
@@ -57,9 +74,10 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
   });
 
   const endDrag = (e: PointerEvent) => {
-    if (e.pointerId != null && typeof root.releasePointerCapture === 'function') {
+    if (captured && e.pointerId != null && typeof root.releasePointerCapture === 'function') {
       root.releasePointerCapture(e.pointerId);
     }
+    captured = false;
     pointerStart = null;
   };
   root.addEventListener('pointerup', endDrag);
@@ -79,6 +97,7 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
   );
 
   let recording = false;
+  let leakCount = 0;
 
   const render = () => {
     root.innerHTML = '';
@@ -93,6 +112,18 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
       borderRadius: '4px',
     });
     if (recording) {
+      const status = document.createElement('span');
+      status.dataset.role = 'live';
+      status.style.marginRight = '8px';
+      const dot = document.createElement('span');
+      Object.assign(dot.style, {
+        display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%',
+        background: '#f28b82', marginRight: '5px', animation: '__rld_pulse 1.4s infinite',
+      });
+      status.appendChild(dot);
+      status.appendChild(document.createTextNode(`Rec · ${leakCount}`));
+      root.appendChild(status);
+
       btn.textContent = '■ Stop';
       btn.dataset.action = 'stop';
       btn.addEventListener('click', (e) => { if (!e.defaultPrevented) cb.onStop(); });
@@ -105,11 +136,13 @@ export function mountWidget(cb: WidgetCallbacks): WidgetController {
     }
   };
 
+  ensurePulseStyle();
   render();
   document.body.appendChild(root);
 
   return {
     setRecording(r: boolean) { recording = r; render(); },
+    setLeakCount(n: number) { leakCount = n; if (recording) render(); },
     unmount() { root.remove(); },
   };
 }

@@ -4,6 +4,8 @@ import { join, resolve, extname, isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { platform } from 'node:os';
+import type { SessionStart, SessionDelta } from '../shared/live-protocol.js';
+import type { SubscriptionTag, NavigationEvent } from '../runtime/types.js';
 
 export type ServerHandle = {
   url: string;
@@ -25,19 +27,72 @@ const MIME: Record<string, string> = {
   '.svg': 'image/svg+xml',
 };
 
+type LiveSession = {
+  start: SessionStart;
+  lastSeq: number;
+  snapshot: { added: SubscriptionTag[]; navigations: NavigationEvent[]; closedIds: string[]; currentRoute: string };
+  lastDeltaAtMs: number;
+};
+
+type LiveHub = {
+  live: Map<string, LiveSession>;
+  sseClients: Set<ServerResponse>;
+};
+
+const ORPHAN_TTL_MS = 30_000;
+const SWEEP_MS = 10_000;
+const PING_MS = 15_000;
+
+function sseSend(res: ServerResponse, event: string, data: unknown): void {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+function broadcast(hub: LiveHub, event: string, data: unknown): void {
+  for (const c of hub.sseClients) {
+    try { sseSend(c, event, data); } catch { hub.sseClients.delete(c); }
+  }
+}
+
 export async function startServer(opts: StartServerOptions): Promise<ServerHandle> {
   const rldDir = join(opts.cwd, '.rld');
   if (!existsSync(rldDir)) mkdirSync(rldDir, { recursive: true });
 
-  const server = createServer((req, res) => handleRequest(req, res, opts, rldDir));
+  const hub: LiveHub = { live: new Map(), sseClients: new Set() };
+
+  const server = createServer((req, res) => handleRequest(req, res, opts, rldDir, hub));
   await new Promise<void>((resolveStart) => server.listen(opts.port, () => resolveStart()));
   const addr = server.address();
   const port = typeof addr === 'object' && addr ? addr.port : opts.port;
 
+  const ping = setInterval(() => {
+    for (const c of hub.sseClients) {
+      try { c.write(': ping\n\n'); } catch { hub.sseClients.delete(c); }
+    }
+  }, PING_MS);
+
+  const sweep = setInterval(() => {
+    const now = Date.now();
+    for (const [id, s] of hub.live) {
+      if (now - s.lastDeltaAtMs > ORPHAN_TTL_MS) {
+        hub.live.delete(id);
+        broadcast(hub, 'session-end', { recordingId: id, fileName: null });
+      }
+    }
+  }, SWEEP_MS);
+  // Don't let the keep-alive/sweep timers hold the event loop open if the CLI
+  // exits without calling close() (e.g. an unhandled error).
+  ping.unref();
+  sweep.unref();
+
   return {
     url: `http://localhost:${port}`,
     port,
-    close: () => new Promise(r => server.close(() => r())),
+    close: () => new Promise(r => {
+      clearInterval(ping);
+      clearInterval(sweep);
+      for (const c of hub.sseClients) { try { c.end(); } catch { /* ignore */ } }
+      server.close(() => r());
+    }),
   };
 }
 
@@ -52,6 +107,7 @@ async function handleRequest(
   res: ServerResponse,
   opts: StartServerOptions,
   rldDir: string,
+  hub: LiveHub,
 ): Promise<void> {
   setCors(res);
   if (req.method === 'OPTIONS') {
@@ -63,7 +119,16 @@ async function handleRequest(
   const pathname = url.pathname;
 
   if (req.method === 'POST' && pathname === '/report') {
-    return handleReport(req, res, rldDir);
+    return handleReport(req, res, rldDir, hub);
+  }
+  if (req.method === 'POST' && pathname === '/session/start') {
+    return handleSessionStart(req, res, hub);
+  }
+  if (req.method === 'POST' && pathname.startsWith('/session/') && pathname.endsWith('/delta')) {
+    return handleSessionDelta(req, res, hub);
+  }
+  if (req.method === 'GET' && pathname === '/live') {
+    return handleLive(req, res, hub);
   }
   if (req.method === 'POST' && pathname === '/open') {
     return handleOpen(req, res, opts.cwd);
@@ -84,6 +149,66 @@ async function handleRequest(
   }
 
   res.writeHead(404).end('Not found');
+}
+
+async function handleSessionStart(req: IncomingMessage, res: ServerResponse, hub: LiveHub): Promise<void> {
+  const body = await readBody(req);
+  let start: SessionStart;
+  try { start = JSON.parse(body); }
+  catch { res.writeHead(400).end('Invalid JSON'); return; }
+  hub.live.set(start.recordingId, {
+    start,
+    lastSeq: 0,
+    snapshot: { added: [], navigations: [], closedIds: [], currentRoute: start.initialRoute },
+    lastDeltaAtMs: Date.now(),
+  });
+  broadcast(hub, 'session-start', start);
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end('{"ok":true}');
+}
+
+async function handleSessionDelta(req: IncomingMessage, res: ServerResponse, hub: LiveHub): Promise<void> {
+  const body = await readBody(req);
+  let delta: SessionDelta;
+  try { delta = JSON.parse(body); }
+  catch { res.writeHead(400).end('Invalid JSON'); return; }
+  const session = hub.live.get(delta.recordingId);
+  if (!session) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{"ok":false,"stale":true}');
+    return;
+  }
+  session.snapshot.added.push(...delta.added);
+  session.snapshot.navigations.push(...delta.navigations);
+  session.snapshot.closedIds.push(...delta.closedIds);
+  session.snapshot.currentRoute = delta.currentRoute;
+  session.lastSeq = delta.seq;
+  session.lastDeltaAtMs = Date.now();
+  broadcast(hub, 'delta', delta);
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end('{"ok":true}');
+}
+
+function handleLive(req: IncomingMessage, res: ServerResponse, hub: LiveHub): void {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-cache',
+    connection: 'keep-alive',
+  });
+  res.write('retry: 2000\n\n');
+  hub.sseClients.add(res);
+  for (const s of hub.live.values()) {
+    sseSend(res, 'session-start', s.start);
+    sseSend(res, 'delta', {
+      recordingId: s.start.recordingId,
+      seq: s.lastSeq,
+      navigations: s.snapshot.navigations,
+      added: s.snapshot.added,
+      closedIds: s.snapshot.closedIds,
+      currentRoute: s.snapshot.currentRoute,
+    });
+  }
+  req.on('close', () => hub.sseClients.delete(res));
 }
 
 async function handleOpen(req: IncomingMessage, res: ServerResponse, cwd: string): Promise<void> {
@@ -175,7 +300,7 @@ function openInEditor(absPath: string, line: number, column: number): Promise<{ 
   });
 }
 
-async function handleReport(req: IncomingMessage, res: ServerResponse, rldDir: string): Promise<void> {
+async function handleReport(req: IncomingMessage, res: ServerResponse, rldDir: string, hub: LiveHub): Promise<void> {
   const body = await readBody(req);
   let report: any;
   try { report = JSON.parse(body); }
@@ -183,6 +308,8 @@ async function handleReport(req: IncomingMessage, res: ServerResponse, rldDir: s
   const recordingId = report?.meta?.recordingId ?? randomUUID();
   const fileName = `${new Date().toISOString().replace(/[:.]/g, '-')}-${recordingId}.json`;
   writeFileSync(join(rldDir, fileName), JSON.stringify(report, null, 2));
+  hub.live.delete(recordingId);
+  broadcast(hub, 'session-end', { recordingId, fileName });
   res.writeHead(200, { 'content-type': 'application/json' });
   res.end(JSON.stringify({ ok: true, fileName }));
 }
